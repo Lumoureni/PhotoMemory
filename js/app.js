@@ -24,6 +24,13 @@
   let viewWipe = null;
   let toastTimer = 0;
   let navLocked = false;
+  const homeCarousel = {
+    photos: [],
+    index: 0,
+    timer: 0,
+    paused: false,
+    running: false,
+  };
 
   /* ── 工具 ── */
   function formatDate(iso) {
@@ -94,8 +101,13 @@
       btn.classList.toggle("is-active", btn.dataset.nav === name);
     });
     if (name === "about") refreshStorageMeter();
-    if (name === "home" && heroAmbient) heroAmbient.start();
-    if (name !== "home" && heroAmbient) heroAmbient.stop();
+    if (name === "home") {
+      if (heroAmbient) heroAmbient.start();
+      startHomeCarousel();
+    } else {
+      if (heroAmbient) heroAmbient.stop();
+      stopHomeCarousel();
+    }
     if (location.hash.startsWith("#share/")) {
       history.replaceState(null, "", location.pathname + location.search);
     } else {
@@ -160,6 +172,136 @@
     if (!el) return;
     const n = state.photos.length;
     el.textContent = n > 0 ? `影集 · ${n} 帧` : "影集空 · 待入藏";
+  }
+
+  /* ── 首页轮播 ── */
+  function buildCarouselDom() {
+    const stack = $("#carouselStack");
+    const dots = $("#carouselDots");
+    stack.innerHTML = "";
+    dots.innerHTML = "";
+    homeCarousel.photos.forEach((photo, i) => {
+      const slide = document.createElement("div");
+      slide.className = "carousel-slide" + (i === homeCarousel.index ? " is-active" : "");
+      slide.dataset.index = String(i);
+      const img = document.createElement("img");
+      img.alt = photo.title;
+      img.src = PhotoStore.urlFor(photo);
+      img.draggable = false;
+      slide.appendChild(img);
+      stack.appendChild(slide);
+
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "carousel-dot" + (i === homeCarousel.index ? " is-active" : "");
+      dot.setAttribute("aria-label", `第 ${i + 1} 帧：${photo.title}`);
+      dot.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showCarouselIndex(i, true);
+      });
+      dots.appendChild(dot);
+    });
+  }
+
+  function updateCarouselMeta() {
+    const photo = homeCarousel.photos[homeCarousel.index];
+    if (!photo) return;
+    const total = homeCarousel.photos.length;
+    $("#carouselIndex").textContent =
+      String(homeCarousel.index + 1).padStart(2, "0") +
+      " / " +
+      String(total).padStart(2, "0");
+    $("#carouselTitle").textContent = photo.title;
+    const bits = [formatDate(photo.takenAt), photo.place].filter(Boolean);
+    $("#carouselMeta").textContent = bits.join(" · ");
+  }
+
+  function showCarouselIndex(index, manual) {
+    const total = homeCarousel.photos.length;
+    if (!total) return;
+    homeCarousel.index = ((index % total) + total) % total;
+    $$(".carousel-slide", $("#carouselStack")).forEach((el, i) => {
+      el.classList.toggle("is-active", i === homeCarousel.index);
+    });
+    $$(".carousel-dot", $("#carouselDots")).forEach((el, i) => {
+      el.classList.toggle("is-active", i === homeCarousel.index);
+    });
+    updateCarouselMeta();
+    // 预载下一张
+    const next = homeCarousel.photos[(homeCarousel.index + 1) % total];
+    if (next) {
+      const pre = new Image();
+      pre.src = PhotoStore.urlFor(next);
+    }
+    if (manual) restartCarouselTimer();
+  }
+
+  function restartCarouselTimer() {
+    clearInterval(homeCarousel.timer);
+    if (homeCarousel.paused || homeCarousel.photos.length < 2) return;
+    homeCarousel.timer = setInterval(() => {
+      if (homeCarousel.paused) return;
+      showCarouselIndex(homeCarousel.index + 1, false);
+    }, 4800);
+  }
+
+  function stopHomeCarousel() {
+    homeCarousel.running = false;
+    clearInterval(homeCarousel.timer);
+  }
+
+  function startHomeCarousel() {
+    // 与最新影集同步（保留当前索引尽量不跳）
+    const list = state.photos.slice(0, 8);
+    homeCarousel.photos = list;
+    const root = $("#homeCarousel");
+    if (!list.length) {
+      root.hidden = true;
+      const status = $("#heroStatus");
+      if (status) status.hidden = false;
+      stopHomeCarousel();
+      return;
+    }
+    root.hidden = false;
+    const statusEl = $("#heroStatus");
+    if (statusEl) statusEl.hidden = true;
+    if (homeCarousel.index >= list.length) homeCarousel.index = 0;
+    buildCarouselDom();
+    updateCarouselMeta();
+    homeCarousel.running = true;
+    restartCarouselTimer();
+  }
+
+  function bindCarousel() {
+    const frame = $(".carousel-frame");
+    const pauseBtn = $("#carouselPause");
+    if (frame) {
+      frame.addEventListener("click", () => {
+        const photo = homeCarousel.photos[homeCarousel.index];
+        if (!photo) return;
+        const idx = state.photos.findIndex((p) => p.id === photo.id);
+        openViewer(idx >= 0 ? idx : homeCarousel.index);
+      });
+    }
+    if (pauseBtn) {
+      pauseBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        homeCarousel.paused = !homeCarousel.paused;
+        pauseBtn.textContent = homeCarousel.paused ? "▶" : "❚❚";
+        pauseBtn.setAttribute("aria-label", homeCarousel.paused ? "继续轮播" : "暂停轮播");
+        if (homeCarousel.paused) clearInterval(homeCarousel.timer);
+        else restartCarouselTimer();
+      });
+    }
+    const root = $("#homeCarousel");
+    if (root) {
+      root.addEventListener("pointerenter", () => {
+        if (!homeCarousel.paused) clearInterval(homeCarousel.timer);
+      });
+      root.addEventListener("pointerleave", () => {
+        if (!homeCarousel.paused) restartCarouselTimer();
+      });
+    }
   }
 
   /* ── 画廊 ── */
@@ -938,6 +1080,9 @@
     renderGallery();
     $("#photoCount").textContent = `${state.photos.length} 帧`;
     updateHeroStatus();
+    if ($$(".view").some((v) => v.dataset.view === "home" && v.classList.contains("is-active"))) {
+      startHomeCarousel();
+    }
   }
 
   /* ── 分享只读路由（hash） ── */
@@ -979,6 +1124,7 @@
     bindUpload();
     bindViewer();
     bindShare();
+    bindCarousel();
 
     await refreshPhotos();
     await handleHashRoute();

@@ -38,7 +38,7 @@
   <main id="app">
     <!-- ========== 首页（一屏） ========== -->
     <section class="view view-home is-active" id="viewHome" data-view="home">
-      <div class="hero hero-compact">
+      <div class="hero hero-compact hero-split">
         <canvas class="hero-particles" id="heroParticles" aria-hidden="true"></canvas>
         <div class="hero-inner">
           <p class="eyebrow">PRIVATE ARCHIVE · 本地典藏</p>
@@ -54,6 +54,24 @@
             <button type="button" class="btn btn-ghost" data-nav="gallery" data-transition="1">开始翻阅</button>
           </div>
         </div>
+
+        <aside class="home-carousel" id="homeCarousel" aria-label="影集轮播" hidden>
+          <div class="carousel-frame">
+            <div class="carousel-stack" id="carouselStack"></div>
+            <div class="carousel-veil" aria-hidden="true"></div>
+            <div class="carousel-caption">
+              <p class="carousel-index" id="carouselIndex">01 / 01</p>
+              <h2 class="carousel-title" id="carouselTitle"></h2>
+              <p class="carousel-meta" id="carouselMeta"></p>
+            </div>
+            <button type="button" class="carousel-open" id="carouselOpen" aria-label="打开此帧">查看</button>
+          </div>
+          <div class="carousel-bar">
+            <div class="carousel-dots" id="carouselDots" aria-hidden="true"></div>
+            <button type="button" class="carousel-pause" id="carouselPause" aria-label="暂停轮播">❚❚</button>
+          </div>
+        </aside>
+
         <div class="hero-status" id="heroStatus" aria-hidden="true"></div>
       </div>
     </section>

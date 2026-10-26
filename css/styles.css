@@ -334,6 +334,194 @@ button {
   padding-bottom: 28px;
 }
 
+.hero-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 64px);
+  width: 100%;
+}
+
+.hero-split .hero-inner {
+  max-width: none;
+  padding-right: 8px;
+}
+
+/* —— 首页轮播 —— */
+.home-carousel {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 480px;
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-carousel[hidden] {
+  display: none !important;
+}
+
+.carousel-frame {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  background: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(196, 165, 116, 0.08);
+  cursor: pointer;
+}
+
+.carousel-stack {
+  position: absolute;
+  inset: 0;
+}
+
+.carousel-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.04);
+  transition:
+    opacity 1s var(--ease),
+    transform 4.8s linear;
+  will-change: opacity, transform;
+}
+
+.carousel-slide.is-active {
+  opacity: 1;
+  transform: scale(1);
+  z-index: 1;
+}
+
+.carousel-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: saturate(0.95) contrast(1.03);
+}
+
+.carousel-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    linear-gradient(to top, rgba(14, 12, 10, 0.92) 0%, rgba(14, 12, 10, 0.15) 42%, transparent 62%),
+    linear-gradient(135deg, rgba(196, 165, 116, 0.08), transparent 40%);
+  pointer-events: none;
+}
+
+.carousel-caption {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
+}
+
+.carousel-index {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--brass);
+  font-variant-numeric: tabular-nums;
+}
+
+.carousel-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  line-height: 1.25;
+}
+
+.carousel-meta {
+  margin: 6px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.carousel-open {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  padding: 7px 14px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--paper);
+  border: 1px solid var(--line-strong);
+  background: rgba(14, 12, 10, 0.45);
+  backdrop-filter: blur(6px);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.35s, border-color 0.3s, color 0.3s;
+}
+
+.carousel-frame:hover .carousel-open,
+.carousel-frame:focus-within .carousel-open {
+  opacity: 1;
+  border-color: var(--brass);
+  color: var(--brass);
+}
+
+.carousel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.carousel-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  min-height: 12px;
+}
+
+.carousel-dot {
+  width: 18px;
+  height: 3px;
+  border: none;
+  padding: 0;
+  background: var(--line-strong);
+  border-radius: 1px;
+  transition: background 0.35s, width 0.35s var(--ease);
+  cursor: pointer;
+}
+
+.carousel-dot.is-active {
+  width: 32px;
+  background: var(--brass);
+}
+
+.carousel-pause {
+  width: 32px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: color 0.25s, border-color 0.25s;
+}
+
+.carousel-pause:hover {
+  color: var(--brass);
+  border-color: var(--brass-dim);
+}
+
 .hero-status {
   position: absolute;
   right: var(--pad);
@@ -1377,6 +1565,21 @@ button {
   .hero-compact {
     padding-top: 16px;
     padding-bottom: 24px;
+  }
+
+  .hero-split {
+    grid-template-columns: 1fr;
+    align-content: center;
+    gap: 20px;
+  }
+
+  .home-carousel {
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .carousel-frame {
+    aspect-ratio: 16 / 11;
   }
 
   .hero-title {

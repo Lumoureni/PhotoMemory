@@ -116,6 +116,51 @@
       }
     },
 
+    async update(id, patch) {
+      const existing = await this.get(id);
+      if (!existing) throw new Error("照片不存在");
+      const next = {
+        ...existing,
+        title: patch.title != null ? String(patch.title).trim() || "未命名一帧" : existing.title,
+        place: patch.place != null ? String(patch.place).trim() : existing.place,
+        note: patch.note != null ? String(patch.note).trim() : existing.note,
+        takenAt: patch.takenAt != null && patch.takenAt ? patch.takenAt : existing.takenAt,
+      };
+      const db = this._db;
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(next);
+      await txDone(tx);
+      const c = cache.get(id);
+      if (c) c.photo = next;
+      return next;
+    },
+
+    /** 备份导入：按 id 覆盖或新建 */
+    async putPhoto(photoLike) {
+      const photo = {
+        id: photoLike.id || uid(),
+        title: (photoLike.title || "").trim() || "未命名一帧",
+        place: (photoLike.place || "").trim(),
+        note: (photoLike.note || "").trim(),
+        takenAt: photoLike.takenAt || new Date().toISOString().slice(0, 10),
+        createdAt: photoLike.createdAt || Date.now(),
+        width: photoLike.width || 0,
+        height: photoLike.height || 0,
+        mime: photoLike.mime || (photoLike.blob && photoLike.blob.type) || "image/jpeg",
+        size: photoLike.size != null ? photoLike.size : (photoLike.blob ? photoLike.blob.size : 0),
+        blob: photoLike.blob,
+      };
+      if (!photo.blob) throw new Error("缺少图片数据");
+      const db = this._db;
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(photo);
+      await txDone(tx);
+      const old = cache.get(photo.id);
+      if (old && old.url) URL.revokeObjectURL(old.url);
+      cache.set(photo.id, { url: blobToUrl(photo.blob), photo });
+      return photo;
+    },
+
     urlFor(photo) {
       if (!photo || !photo.blob) return "";
       const hit = cache.get(photo.id);

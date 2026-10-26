@@ -1101,6 +1101,27 @@ button {
   flex: 0 0 auto;
 }
 
+.backup-bar {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.backup-lead {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 40em;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
 .meter-track {
   height: 2px;
   background: var(--line);
@@ -1328,10 +1349,34 @@ button {
   font-style: italic;
 }
 
+.viewer-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 280px;
+  margin-top: 4px;
+}
+
+.viewer-edit .field input,
+.viewer-edit .field textarea {
+  background: rgba(14, 12, 10, 0.7);
+  border: 1px solid var(--line-strong);
+  padding: 8px 10px;
+  font-size: 13px;
+  width: 100%;
+  resize: none;
+}
+
+.viewer-edit .field input:focus,
+.viewer-edit .field textarea:focus {
+  border-color: var(--brass);
+  outline: none;
+}
+
 .viewer-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 8px;
+  margin-top: 18px;
   flex-wrap: wrap;
 }
 

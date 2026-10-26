@@ -606,6 +606,7 @@
     state.viewer.index = Math.max(0, Math.min(index, list.length - 1));
     const viewer = $("#viewer");
     viewer.hidden = false;
+    setEditMode(false);
     document.body.classList.add("is-locked");
     requestAnimationFrame(() => viewer.classList.add("is-open"));
     renderViewer(true);
@@ -616,6 +617,7 @@
     const viewer = $("#viewer");
     viewer.classList.remove("is-open");
     state.viewer.open = false;
+    setEditMode(false);
     setTimeout(() => {
       viewer.hidden = true;
       document.body.classList.remove("is-locked");
@@ -699,6 +701,7 @@
       fromImg.classList.remove("is-current");
       fromImg.classList.add("is-leaving");
       toImg.classList.add("is-current");
+      setEditMode(false);
       // 侧栏更新
       $("#viewerIndex").textContent =
         String(state.viewer.index + 1).padStart(2, "0") +
@@ -778,6 +781,7 @@
       fromImg.classList.remove("is-current");
       fromImg.classList.add("is-leaving");
       toImg.classList.add("is-current");
+      setEditMode(false);
       renderSideMeta(nextPhoto, list.length);
       updateThumbActive();
     });
@@ -803,6 +807,52 @@
     });
   }
 
+  function setEditMode(on) {
+    const display = $("#viewerDisplay");
+    const form = $("#viewerEdit");
+    const actionsView = $("#viewerActionsView");
+    const actionsEdit = $("#viewerActionsEdit");
+    if (!display) return;
+    display.hidden = on;
+    form.hidden = !on;
+    actionsView.hidden = on;
+    actionsEdit.hidden = !on;
+    if (on) {
+      const list = currentList();
+      const photo = list[state.viewer.index];
+      if (!photo) return;
+      $("#editTitle").value = photo.title || "";
+      $("#editDate").value = (photo.takenAt || "").slice(0, 10);
+      $("#editPlace").value = photo.place || "";
+      $("#editNote").value = photo.note || "";
+      $("#editTitle").focus();
+    }
+  }
+
+  async function saveViewerEdit() {
+    const list = currentList();
+    const photo = list[state.viewer.index];
+    if (!photo) return;
+    try {
+      const next = await PhotoStore.update(photo.id, {
+        title: $("#editTitle").value,
+        takenAt: $("#editDate").value,
+        place: $("#editPlace").value,
+        note: $("#editNote").value,
+      });
+      // 同步 state 中的对象
+      const idx = state.photos.findIndex((p) => p.id === photo.id);
+      if (idx >= 0) state.photos[idx] = next;
+      setEditMode(false);
+      renderSideMeta(next, list.length);
+      renderGallery();
+      toast("已保存修改");
+    } catch (err) {
+      console.error(err);
+      toast("保存失败");
+    }
+  }
+
   function bindViewer() {
     $("#viewerClose").addEventListener("click", closeViewer);
     $("#viewerBackdrop").addEventListener("click", closeViewer);
@@ -823,9 +873,21 @@
         return;
       }
       state.viewer.index = Math.min(state.viewer.index, left.length - 1);
+      setEditMode(false);
       renderViewer(true);
       renderThumbs();
       toast("已移出影集");
+    });
+
+    $("#btnEdit").addEventListener("click", () => setEditMode(true));
+    $("#btnCancelEdit").addEventListener("click", () => setEditMode(false));
+    $("#btnSaveEdit").addEventListener("click", (e) => {
+      e.preventDefault();
+      saveViewerEdit();
+    });
+    $("#viewerEdit").addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveViewerEdit();
     });
 
     $("#btnShare").addEventListener("click", () => openShare());
@@ -837,7 +899,15 @@
         return;
       }
       if (!state.viewer.open) return;
-      if (e.key === "Escape") closeViewer();
+      const editing = $("#viewerEdit") && !$("#viewerEdit").hidden;
+      if (e.key === "Escape") {
+        if (editing) {
+          setEditMode(false);
+          return;
+        }
+        closeViewer();
+      }
+      if (editing) return;
       if (e.key === "ArrowLeft") switchPhoto(-1);
       if (e.key === "ArrowRight") switchPhoto(1);
     });
@@ -1057,6 +1127,85 @@
     });
   }
 
+  /* ── 备份导出 / 导入 ── */
+  function bindBackup() {
+    const status = $("#backupStatus");
+    const exportBtn = $("#btnExport");
+    const importBtn = $("#btnImport");
+    const importInput = $("#importInput");
+
+    if (exportBtn) {
+      exportBtn.addEventListener("click", async () => {
+        if (!state.photos.length) {
+          status.textContent = "影集为空，无需导出";
+          return;
+        }
+        exportBtn.disabled = true;
+        status.textContent = "正在打包…";
+        try {
+          const photos = await PhotoStore.list();
+          const blob = await PhotoBackup.exportArchive(photos);
+          const stamp = new Date().toISOString().slice(0, 10);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `photomemory-backup-${stamp}.zip`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+          status.textContent = `已导出 ${photos.length} 帧（${formatBytes(blob.size)}）`;
+          toast("备份已下载");
+        } catch (err) {
+          console.error(err);
+          status.textContent = "导出失败：" + (err && err.message ? err.message : "未知错误");
+        } finally {
+          exportBtn.disabled = false;
+        }
+      });
+    }
+
+    if (importBtn && importInput) {
+      importBtn.addEventListener("click", () => importInput.click());
+      importInput.addEventListener("change", async () => {
+        const file = importInput.files && importInput.files[0];
+        importInput.value = "";
+        if (!file) return;
+        status.textContent = "正在解析备份…";
+        importBtn.disabled = true;
+        try {
+          const { items } = await PhotoBackup.parseArchive(file);
+          if (!items.length) {
+            status.textContent = "备份中没有可导入的照片";
+            return;
+          }
+          let ok = 0;
+          for (const item of items) {
+            await PhotoStore.putPhoto({
+              id: item.meta.id,
+              title: item.meta.title,
+              place: item.meta.place,
+              note: item.meta.note,
+              takenAt: item.meta.takenAt,
+              createdAt: item.meta.createdAt,
+              width: item.meta.width,
+              height: item.meta.height,
+              mime: item.meta.mime || item.blob.type,
+              size: item.blob.size,
+              blob: item.blob,
+            });
+            ok++;
+          }
+          await refreshPhotos();
+          status.textContent = `已导入 ${ok} 帧`;
+          toast(`已导入 ${ok} 帧`);
+        } catch (err) {
+          console.error(err);
+          status.textContent = "导入失败：" + (err && err.message ? err.message : "未知错误");
+        } finally {
+          importBtn.disabled = false;
+        }
+      });
+    }
+  }
+
   /* ── 存储计量 ── */
   async function refreshStorageMeter() {
     try {
@@ -1125,6 +1274,7 @@
     bindViewer();
     bindShare();
     bindCarousel();
+    bindBackup();
 
     await refreshPhotos();
     await handleHashRoute();

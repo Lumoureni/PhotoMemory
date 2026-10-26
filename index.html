@@ -183,6 +183,17 @@
           <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
           <p class="meter-text" id="meterText">正在统计…</p>
         </div>
+
+        <div class="backup-bar">
+          <p class="eyebrow">BACKUP</p>
+          <p class="backup-lead">导出含原图与元数据的 ZIP，换设备可再导入。请定期备份重要影集。</p>
+          <div class="backup-actions">
+            <button type="button" class="btn btn-brass btn-sm" id="btnExport">导出备份 ZIP</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnImport">导入备份</button>
+            <input type="file" id="importInput" accept=".zip,application/zip" hidden />
+          </div>
+          <p class="form-status" id="backupStatus" role="status"></p>
+        </div>
       </div>
     </section>
   </main>
@@ -214,12 +225,40 @@
 
     <aside class="viewer-side" id="viewerSide">
       <p class="eyebrow" id="viewerIndex">01 / 01</p>
-      <h2 class="viewer-title" id="viewerTitle">未命名</h2>
-      <p class="viewer-meta" id="viewerMeta"></p>
-      <p class="viewer-note" id="viewerNote"></p>
-      <div class="viewer-actions">
+
+      <div class="viewer-display" id="viewerDisplay">
+        <h2 class="viewer-title" id="viewerTitle">未命名</h2>
+        <p class="viewer-meta" id="viewerMeta"></p>
+        <p class="viewer-note" id="viewerNote"></p>
+      </div>
+
+      <form class="viewer-edit" id="viewerEdit" hidden>
+        <label class="field">
+          <span class="field-label">标题</span>
+          <input type="text" id="editTitle" maxlength="80" />
+        </label>
+        <label class="field">
+          <span class="field-label">日期</span>
+          <input type="date" id="editDate" />
+        </label>
+        <label class="field">
+          <span class="field-label">地点</span>
+          <input type="text" id="editPlace" maxlength="60" />
+        </label>
+        <label class="field">
+          <span class="field-label">备注</span>
+          <textarea id="editNote" rows="2" maxlength="500"></textarea>
+        </label>
+      </form>
+
+      <div class="viewer-actions" id="viewerActionsView">
         <button type="button" class="btn btn-brass btn-sm" id="btnShare">分享此帧</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btnDelete">移出影集</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnEdit">编辑信息</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnDelete">移出</button>
+      </div>
+      <div class="viewer-actions" id="viewerActionsEdit" hidden>
+        <button type="button" class="btn btn-brass btn-sm" id="btnSaveEdit">保存</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnCancelEdit">取消</button>
       </div>
     </aside>
 
@@ -252,6 +291,7 @@
   <canvas class="view-wipe" id="viewWipe" aria-hidden="true"></canvas>
 
   <script src="js/store.js"></script>
+  <script src="js/backup.js"></script>
   <script src="js/particles.js"></script>
   <script src="js/app.js"></script>
 </body>

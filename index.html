@@ -84,9 +84,16 @@
             <p class="eyebrow">COLLECTION</p>
             <h2 class="section-title">全部影帧</h2>
           </div>
-          <div class="gallery-filters" id="galleryFilters">
-            <button type="button" class="chip is-active" data-filter="all">全部</button>
-            <button type="button" class="chip" data-filter="year">按年</button>
+          <div class="gallery-tools">
+            <label class="search-box">
+              <span class="visually-hidden">搜索</span>
+              <input type="search" id="gallerySearch" placeholder="搜索标题 / 地点 / 备注" maxlength="60" />
+            </label>
+            <div class="gallery-filters" id="galleryFilters">
+              <button type="button" class="chip is-active" data-filter="all">全部</button>
+              <button type="button" class="chip" data-filter="fav">收藏</button>
+              <button type="button" class="chip" data-filter="year">按年</button>
+            </div>
           </div>
         </div>
         <div class="masonry" id="galleryGrid" aria-live="polite"></div>
@@ -253,6 +260,7 @@
 
       <div class="viewer-actions" id="viewerActionsView">
         <button type="button" class="btn btn-brass btn-sm" id="btnShare">分享此帧</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnFav" aria-pressed="false">收藏</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btnEdit">编辑信息</button>
         <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnDelete">移出</button>
       </div>

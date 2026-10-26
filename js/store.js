@@ -93,6 +93,7 @@
         height: meta.height || 0,
         mime: blob.type || "image/jpeg",
         size: blob.size,
+        favorite: !!meta.favorite,
         blob,
       };
       const db = this._db;
@@ -125,6 +126,7 @@
         place: patch.place != null ? String(patch.place).trim() : existing.place,
         note: patch.note != null ? String(patch.note).trim() : existing.note,
         takenAt: patch.takenAt != null && patch.takenAt ? patch.takenAt : existing.takenAt,
+        favorite: patch.favorite != null ? !!patch.favorite : existing.favorite,
       };
       const db = this._db;
       const tx = db.transaction(STORE, "readwrite");
@@ -148,6 +150,7 @@
         height: photoLike.height || 0,
         mime: photoLike.mime || (photoLike.blob && photoLike.blob.type) || "image/jpeg",
         size: photoLike.size != null ? photoLike.size : (photoLike.blob ? photoLike.blob.size : 0),
+        favorite: !!photoLike.favorite,
         blob: photoLike.blob,
       };
       if (!photo.blob) throw new Error("缺少图片数据");

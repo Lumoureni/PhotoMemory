@@ -193,6 +193,7 @@
       height: p.height,
       mime: p.mime,
       size: p.size,
+      favorite: !!p.favorite,
       file: `images/${p.id}${extFromMime(p.mime)}`,
     }));
 

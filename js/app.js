@@ -8,6 +8,7 @@
   const state = {
     photos: [],
     filter: "all",
+    query: "",
     viewer: {
       open: false,
       index: 0,
@@ -251,8 +252,14 @@
   }
 
   function startHomeCarousel() {
-    // 与最新影集同步（保留当前索引尽量不跳）
-    const list = state.photos.slice(0, 8);
+    // 收藏优先，再按时间
+    const sorted = state.photos.slice().sort((a, b) => {
+      const fa = a.favorite ? 1 : 0;
+      const fb = b.favorite ? 1 : 0;
+      if (fa !== fb) return fb - fa;
+      return 0;
+    });
+    const list = sorted.slice(0, 8);
     homeCarousel.photos = list;
     const root = $("#homeCarousel");
     if (!list.length) {
@@ -305,8 +312,26 @@
   }
 
   /* ── 画廊 ── */
+  function matchesQuery(photo, q) {
+    if (!q) return true;
+    const s = q.trim().toLowerCase();
+    if (!s) return true;
+    const hay = [photo.title, photo.place, photo.note, photo.takenAt]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(s);
+  }
+
   function filteredPhotos() {
-    return state.photos.slice();
+    let list = state.photos.slice();
+    if (state.filter === "fav") {
+      list = list.filter((p) => p.favorite);
+    }
+    if (state.query) {
+      list = list.filter((p) => matchesQuery(p, state.query));
+    }
+    return list;
   }
 
   function yearOf(photo) {
@@ -324,10 +349,19 @@
     grid.innerHTML = "";
     grid.classList.toggle("is-grouped", state.filter === "year");
     const section = $("#gallerySection");
+    const emptyTitle = empty.querySelector("h3");
+    const emptyP = empty.querySelector("p");
     if (!list.length) {
       empty.classList.add("is-visible");
       section.classList.add("is-empty");
       grid.style.setProperty("--gallery-rows", "1");
+      if (state.photos.length && (state.query || state.filter === "fav")) {
+        emptyTitle.textContent = "没有匹配的影帧";
+        emptyP.textContent = "试试换关键词，或取消筛选。";
+      } else {
+        emptyTitle.textContent = "暗房尚空";
+        emptyP.textContent = "还没有照片入藏。上传第一张，让影集开始生长。";
+      }
       return;
     }
     empty.classList.remove("is-visible");
@@ -371,7 +405,7 @@
     let lastYear = null;
     const addCard = (photo) => {
       const card = document.createElement("article");
-      card.className = "card";
+      card.className = "card" + (photo.favorite ? " is-fav" : "");
       card.style.animationDelay = `${Math.min(delay * 0.04, 0.5)}s`;
       delay++;
       card.tabIndex = 0;
@@ -387,6 +421,19 @@
       img.src = PhotoStore.urlFor(photo);
       wrap.appendChild(img);
 
+      const favBtn = document.createElement("button");
+      favBtn.type = "button";
+      favBtn.className = "card-fav" + (photo.favorite ? " is-on" : "");
+      favBtn.setAttribute("aria-label", photo.favorite ? "取消收藏" : "收藏");
+      favBtn.textContent = photo.favorite ? "★" : "☆";
+      favBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await PhotoStore.update(photo.id, { favorite: !photo.favorite });
+        await refreshPhotos();
+        toast(photo.favorite ? "已取消收藏" : "已收藏");
+      });
+      wrap.appendChild(favBtn);
+
       const overlay = document.createElement("div");
       overlay.className = "card-overlay";
       overlay.innerHTML = `
@@ -399,7 +446,10 @@
       wrap.appendChild(overlay);
 
       card.appendChild(wrap);
-      const open = () => openViewer(state.photos.indexOf(photo));
+      const open = () => {
+        const idx = state.photos.findIndex((p) => p.id === photo.id);
+        openViewer(idx >= 0 ? idx : 0);
+      };
       card.addEventListener("click", open);
       card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -437,6 +487,17 @@
       });
       renderGallery();
     });
+    const search = $("#gallerySearch");
+    if (search) {
+      let t = 0;
+      search.addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          state.query = search.value || "";
+          renderGallery();
+        }, 120);
+      });
+    }
   }
 
   /* ── 上传 ── */
@@ -596,7 +657,7 @@
 
   /* ── 查看器 ── */
   function currentList() {
-    return filteredPhotos();
+    return state.photos;
   }
 
   function openViewer(index) {
@@ -632,6 +693,17 @@
     return $("#viewerImgA").classList.contains("is-current") ? $("#viewerImgB") : $("#viewerImgA");
   }
 
+  function updateFavButton() {
+    const btn = $("#btnFav");
+    if (!btn) return;
+    const list = currentList();
+    const photo = list[state.viewer.index];
+    const on = !!(photo && photo.favorite);
+    btn.textContent = on ? "已收藏" : "收藏";
+    btn.classList.toggle("is-on", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
   function renderViewer(instant) {
     const list = currentList();
     if (!list.length) {
@@ -652,6 +724,7 @@
     const bits = [formatDate(photo.takenAt), photo.place].filter(Boolean);
     $("#viewerMeta").textContent = bits.join(" · ") || (photo.width ? `${photo.width}×${photo.height}` : "");
     $("#viewerNote").textContent = photo.note || "";
+    updateFavButton();
 
     if (instant) {
       // 预加载相邻
@@ -711,6 +784,7 @@
       const bits = [formatDate(nextPhoto.takenAt), nextPhoto.place].filter(Boolean);
       $("#viewerMeta").textContent = bits.join(" · ");
       $("#viewerNote").textContent = nextPhoto.note || "";
+      updateFavButton();
       updateThumbActive();
       // 预取下一张
       const after = list[(state.viewer.index + 1) % list.length];
@@ -783,6 +857,7 @@
       toImg.classList.add("is-current");
       setEditMode(false);
       renderSideMeta(nextPhoto, list.length);
+      updateFavButton();
       updateThumbActive();
     });
     fromImg.classList.remove("is-leaving");
@@ -889,6 +964,21 @@
       e.preventDefault();
       saveViewerEdit();
     });
+
+    const favBtn = $("#btnFav");
+    if (favBtn) {
+      favBtn.addEventListener("click", async () => {
+        const list = currentList();
+        const photo = list[state.viewer.index];
+        if (!photo) return;
+        const next = await PhotoStore.update(photo.id, { favorite: !photo.favorite });
+        const idx = state.photos.findIndex((p) => p.id === photo.id);
+        if (idx >= 0) state.photos[idx] = next;
+        updateFavButton();
+        renderGallery();
+        toast(next.favorite ? "已收藏" : "已取消收藏");
+      });
+    }
 
     $("#btnShare").addEventListener("click", () => openShare());
 
@@ -1189,6 +1279,7 @@
               height: item.meta.height,
               mime: item.meta.mime || item.blob.type,
               size: item.blob.size,
+              favorite: !!item.meta.favorite,
               blob: item.blob,
             });
             ok++;

@@ -1,0 +1,240 @@
+<!-- AI生成 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="PhotoMemory · 私人拍照记录与影集" />
+  <title>PhotoMemory · 影集</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='2' fill='%230E0C0A'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23C4A574' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23C4A574'/%3E%3C/svg%3E" />
+</head>
+<body>
+<p data-aigc-mark="1" style="margin:0 0 8px;font-size:10px;line-height:1.3;color:#6b6560;font-weight:400;">AI生成</p>
+
+  <div class="grain" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- 顶栏 -->
+  <header class="site-header" id="siteHeader">
+    <a class="brand" href="#home" data-nav="home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text">
+        <span class="brand-en">PHOTOMEMORY</span>
+        <span class="brand-zh">私人影集</span>
+      </span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <button type="button" class="nav-link is-active" data-nav="home">首页</button>
+      <button type="button" class="nav-link" data-nav="gallery">翻阅</button>
+      <button type="button" class="nav-link" data-nav="upload">入藏</button>
+      <button type="button" class="nav-link" data-nav="about">关于</button>
+    </nav>
+    <div class="header-meta">
+      <span class="count-label" id="photoCount">0 帧</span>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- ========== 首页（一屏） ========== -->
+    <section class="view view-home is-active" id="viewHome" data-view="home">
+      <div class="hero hero-compact">
+        <canvas class="hero-particles" id="heroParticles" aria-hidden="true"></canvas>
+        <div class="hero-inner">
+          <p class="eyebrow">PRIVATE ARCHIVE · 本地典藏</p>
+          <h1 class="hero-title">
+            把光与片刻<br />
+            <em>留在自己的暗房里</em>
+          </h1>
+          <p class="hero-lead">
+            上传拍照记录，以画册方式翻阅。切换照片时，银盐般的粒子会替你显影下一张记忆。
+          </p>
+          <div class="hero-actions">
+            <button type="button" class="btn btn-brass" data-nav="upload" data-transition="1">入藏一张</button>
+            <button type="button" class="btn btn-ghost" data-nav="gallery" data-transition="1">开始翻阅</button>
+          </div>
+        </div>
+        <div class="hero-status" id="heroStatus" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- ========== 翻阅（画廊） ========== -->
+    <section class="view view-gallery" id="viewGallery" data-view="gallery" hidden>
+      <div class="section gallery-section" id="gallerySection">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">COLLECTION</p>
+            <h2 class="section-title">全部影帧</h2>
+          </div>
+          <div class="gallery-filters" id="galleryFilters">
+            <button type="button" class="chip is-active" data-filter="all">全部</button>
+            <button type="button" class="chip" data-filter="year">按年</button>
+          </div>
+        </div>
+        <div class="masonry" id="galleryGrid" aria-live="polite"></div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-frame" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <h3>暗房尚空</h3>
+          <p>还没有照片入藏。上传第一张，让影集开始生长。</p>
+          <button type="button" class="btn btn-brass" data-nav="upload" data-transition="1">去入藏</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 入藏视图 ========== -->
+    <section class="view view-upload" id="viewUpload" data-view="upload" hidden>
+      <div class="upload-layout">
+        <div class="upload-copy">
+          <p class="eyebrow">INTAKE</p>
+          <h2 class="section-title">入藏一张记忆</h2>
+          <p class="section-lead">
+            照片仅保存在本机浏览器中，不会上传到任何服务器。写下一点注记，日后翻阅会更有温度。
+          </p>
+        </div>
+
+        <form class="upload-panel" id="uploadForm" autocomplete="off">
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择或拖入照片">
+            <input type="file" id="fileInput" accept="image/*" multiple hidden />
+            <div class="dropzone-inner" id="dropzoneInner">
+              <div class="drop-icon" aria-hidden="true">
+                <svg viewBox="0 0 48 48" fill="none">
+                  <rect x="6" y="12" width="36" height="26" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                  <circle cx="18" cy="22" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M8 34l10-9 7 6 5-4 10 7" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <p class="drop-title">拖入照片，或点击选择</p>
+              <p class="drop-hint">支持 JPG / PNG / WebP · 可多选</p>
+            </div>
+            <div class="drop-preview" id="dropPreview" hidden>
+              <img id="previewImg" alt="待入藏预览" />
+              <button type="button" class="preview-clear" id="clearPreview" aria-label="清除选择">×</button>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">标题</span>
+              <input type="text" id="fieldTitle" name="title" placeholder="例如：黄昏的窗边" maxlength="80" />
+            </label>
+            <label class="field">
+              <span class="field-label">日期</span>
+              <input type="date" id="fieldDate" name="takenAt" />
+            </label>
+            <label class="field field-full">
+              <span class="field-label">地点</span>
+              <input type="text" id="fieldPlace" name="place" placeholder="例如：杭州 · 西湖" maxlength="60" />
+            </label>
+            <label class="field field-full">
+              <span class="field-label">备注</span>
+              <textarea id="fieldNote" name="note" rows="3" placeholder="当时在想什么、风从哪边来……" maxlength="500"></textarea>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-brass" id="btnSave">入藏影集</button>
+            <p class="form-status" id="formStatus" role="status"></p>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ========== 关于视图 ========== -->
+    <section class="view view-about" id="viewAbout" data-view="about" hidden>
+      <div class="about-wrap">
+        <p class="eyebrow">ABOUT</p>
+        <h2 class="section-title">关于这间暗房</h2>
+        <div class="about-grid">
+          <article class="about-card">
+            <h3>本地典藏</h3>
+            <p>所有照片与元数据保存在浏览器 IndexedDB。换设备或清空站点数据会丢失，请自行备份重要影像。</p>
+          </article>
+          <article class="about-card">
+            <h3>粒子显影</h3>
+            <p>翻阅时旧照片会解体为暖色粒子，再汇聚成下一张——像银盐在暗房里重新显影。</p>
+          </article>
+          <article class="about-card">
+            <h3>寄出请柬</h3>
+            <p>在查看器中可生成分享卡片 PNG，或使用系统分享。自用、私密、无追踪。</p>
+          </article>
+        </div>
+        <div class="storage-meter" id="storageMeter">
+          <p class="eyebrow">STORAGE</p>
+          <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+          <p class="meter-text" id="meterText">正在统计…</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>PhotoMemory · 本地私人影集</p>
+    <p class="footer-note">数据存于本机浏览器 · 不上传云端</p>
+  </footer>
+
+  <!-- ========== 查看器 ========== -->
+  <div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-label="照片查看器">
+    <div class="viewer-backdrop" id="viewerBackdrop"></div>
+    <canvas class="viewer-particles" id="viewerParticles" aria-hidden="true"></canvas>
+    <div class="viewer-stage" id="viewerStage">
+      <img class="viewer-img is-current" id="viewerImgA" alt="" draggable="false" />
+      <img class="viewer-img" id="viewerImgB" alt="" draggable="false" />
+    </div>
+
+    <button type="button" class="viewer-close" id="viewerClose" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+
+    <button type="button" class="viewer-nav viewer-prev" id="viewerPrev" aria-label="上一张">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button type="button" class="viewer-nav viewer-next" id="viewerNext" aria-label="下一张">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+    <aside class="viewer-side" id="viewerSide">
+      <p class="eyebrow" id="viewerIndex">01 / 01</p>
+      <h2 class="viewer-title" id="viewerTitle">未命名</h2>
+      <p class="viewer-meta" id="viewerMeta"></p>
+      <p class="viewer-note" id="viewerNote"></p>
+      <div class="viewer-actions">
+        <button type="button" class="btn btn-brass btn-sm" id="btnShare">分享此帧</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnDelete">移出影集</button>
+      </div>
+    </aside>
+
+    <div class="viewer-thumbs" id="viewerThumbs" aria-label="缩略图条"></div>
+  </div>
+
+  <!-- ========== 分享面板 ========== -->
+  <div class="share-sheet" id="shareSheet" hidden role="dialog" aria-modal="true" aria-label="分享">
+    <div class="share-sheet-panel">
+      <header class="share-sheet-head">
+        <p class="eyebrow">SHARE CARD</p>
+        <h2>寄出这一帧</h2>
+        <button type="button" class="icon-btn" id="shareClose" aria-label="关闭分享">×</button>
+      </header>
+      <div class="share-card-preview">
+        <canvas id="shareCanvas" width="1080" height="1350"></canvas>
+      </div>
+      <div class="share-sheet-actions">
+        <button type="button" class="btn btn-brass" id="btnDownloadCard">下载卡片</button>
+        <button type="button" class="btn btn-ghost" id="btnNativeShare">系统分享</button>
+        <button type="button" class="btn btn-ghost" id="btnCopyCaption">复制文案</button>
+      </div>
+      <p class="share-hint">卡片为本地生成，不会上传。可直接保存到相册再发给朋友。</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- 视图切换全屏粒子层 -->
+  <canvas class="view-wipe" id="viewWipe" aria-hidden="true"></canvas>
+
+  <script src="js/store.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

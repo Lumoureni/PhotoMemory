@@ -261,6 +261,9 @@
         size: photoLike.size != null ? photoLike.size : (blob ? blob.size : 0),
         favorite: !!photoLike.favorite,
         exif: info.exif,
+        collectionIds: Array.isArray(photoLike.collectionIds)
+          ? photoLike.collectionIds.map(String)
+          : [],
         blob,
       };
       if (!photo.blob && !photo.url) throw new Error("缺少图片数据");
@@ -271,6 +274,7 @@
           note: photo.note,
           takenAt: photo.takenAt,
           favorite: photo.favorite,
+          collectionIds: photo.collectionIds,
           width: info.width,
           height: info.height,
           mime: info.mime,
@@ -280,6 +284,21 @@
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).put(photo);
       await txDone(tx);
+      if (photo.collectionIds && photo.collectionIds.length) {
+        for (const cid of photo.collectionIds) {
+          try {
+            const ctx = this._db.transaction(COL_STORE, "readonly");
+            const col = await reqToPromise(ctx.objectStore(COL_STORE).get(cid));
+            if (col && !col.photoIds.includes(photo.id)) {
+              col.photoIds.push(photo.id);
+              col.updatedAt = Date.now();
+              const wtx = this._db.transaction(COL_STORE, "readwrite");
+              wtx.objectStore(COL_STORE).put(col);
+              await txDone(wtx);
+            }
+          } catch (_) {}
+        }
+      }
       const old = cache.get(photo.id);
       if (old && old.url) URL.revokeObjectURL(old.url);
       cache.set(photo.id, { url: blobToUrl(photo.blob), photo });

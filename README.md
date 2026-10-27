@@ -70,6 +70,12 @@ apiToken: "与服务端一致",
 - 服务端目录 `server/data/` 含原图与元数据，注意备份与权限  
 - 个人自用可加 IP 白名单 / Nginx Basic Auth  
 
+## 能力一览
+
+- 网页：一屏画廊、粒子查看器、分享卡、EXIF、备份 ZIP、自建集  
+- **自动归档**：入藏 / 导入时用 MobileNet 识别「人物 / 风景 / 动物 / 美食…」并自动建「自动 · XX」集（需联网加载模型，可在 `js/config.js` 关闭 `autoClassify`）  
+- 双端云同步：见上文 server + 小程序  
+
 ## 本地纯前端预览
 
 ```bash

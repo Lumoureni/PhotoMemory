@@ -516,7 +516,7 @@
     const sel = $("#fieldCollection");
     if (sel) {
       const cur = sel.value;
-      sel.innerHTML = `<option value="">不放入集</option>`;
+      sel.innerHTML = `<option value="">自动识别归档（推荐）</option>`;
       state.collections.forEach((c) => {
         const opt = document.createElement("option");
         opt.value = c.id;
@@ -655,6 +655,45 @@
     }
   }
 
+  /* ── 自动分类归档 ── */
+  async function ensureAutoAlbum(result) {
+    if (!result || !window.PhotoClassify) return null;
+    const name = PhotoClassify.albumNameFor(result);
+    if (!name) return null;
+    let col = state.collections.find((c) => c.name === name);
+    if (!col) {
+      try {
+        col = await PhotoStore.createCollection(
+          name,
+          "导入时自动识别：" + (result.raw || result.label || "")
+        );
+        state.collections.unshift(col);
+      } catch (e) {
+        console.warn(e);
+        return null;
+      }
+    }
+    return col.id;
+  }
+
+  async function classifyBlobForAlbum(blob, manualIds) {
+    const ids = Array.isArray(manualIds) ? manualIds.slice() : [];
+    if (!window.PhotoClassify || !PhotoClassify.enabled()) {
+      return { collectionIds: ids, cat: null };
+    }
+    try {
+      const cat = await PhotoClassify.classify(blob);
+      if (cat) {
+        const autoId = await ensureAutoAlbum(cat);
+        if (autoId && ids.indexOf(autoId) < 0) ids.push(autoId);
+        return { collectionIds: ids, cat };
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+    return { collectionIds: ids, cat: null };
+  }
+
   /* ── 上传 ── */
   function bindUpload() {
     const dropzone = $("#dropzone");
@@ -742,19 +781,22 @@
       }
       const btn = $("#btnSave");
       btn.disabled = true;
-      status.textContent = "正在入藏…";
+      status.textContent = "正在入藏与识别…";
       try {
+        const manualIds = $("#fieldCollection").value ? [$("#fieldCollection").value] : [];
         const metaBase = {
           title: $("#fieldTitle").value,
           place: $("#fieldPlace").value,
           note: $("#fieldNote").value,
           takenAt: $("#fieldDate").value || new Date().toISOString().slice(0, 10),
-          collectionIds: $("#fieldCollection").value ? [$("#fieldCollection").value] : [],
         };
         let count = 0;
+        let firstCat = null;
         for (let i = 0; i < state.pendingFiles.length; i++) {
           const file = state.pendingFiles[i];
           const dim = await measureImage(file);
+          const { collectionIds, cat } = await classifyBlobForAlbum(file, manualIds);
+          if (!firstCat && cat) firstCat = cat;
           const title =
             state.pendingFiles.length > 1
               ? `${metaBase.title || "未命名一帧"} ${i + 1}`
@@ -764,21 +806,27 @@
             title,
             width: dim.width,
             height: dim.height,
+            collectionIds,
           });
           count++;
         }
         await refreshPhotos();
+        await refreshCollections();
         clearPending();
         $("#fieldTitle").value = "";
         $("#fieldNote").value = "";
         $("#fieldPlace").value = "";
         status.textContent = `已入藏 ${count} 帧`;
-        toast(`已入藏 ${count} 帧记忆`);
+        toast(
+          firstCat
+            ? `已入藏 ${count} 帧 · 识别为「${firstCat.label}」`
+            : `已入藏 ${count} 帧记忆`
+        );
         // 短暂庆祝粒子
         celebrate();
         setTimeout(() => {
-          const btn = document.querySelector('[data-nav="gallery"]');
-          const rect = btn ? btn.getBoundingClientRect() : null;
+          const navBtn = document.querySelector('[data-nav="gallery"]');
+          const rect = navBtn ? navBtn.getBoundingClientRect() : null;
           setView("gallery", {
             transition: true,
             origin: rect
@@ -1625,6 +1673,14 @@
           }
           let ok = 0;
           for (const item of items) {
+            let collectionIds = Array.isArray(item.meta.collectionIds)
+              ? item.meta.collectionIds.slice()
+              : [];
+            // 备份里没有集信息时，导入时自动识别归档
+            if (!collectionIds.length && item.blob && window.PhotoClassify) {
+              const r = await classifyBlobForAlbum(item.blob, []);
+              collectionIds = r.collectionIds;
+            }
             await PhotoStore.putPhoto({
               id: item.meta.id,
               title: item.meta.title,
@@ -1638,13 +1694,15 @@
               size: item.blob.size,
               favorite: !!item.meta.favorite,
               exif: item.meta.exif || null,
+              collectionIds,
               blob: item.blob,
             });
             ok++;
           }
           await refreshPhotos();
+          await refreshCollections();
           status.textContent = `已导入 ${ok} 帧`;
-          toast(`已导入 ${ok} 帧`);
+          toast(`已导入 ${ok} 帧（已尝试自动归档）`);
         } catch (err) {
           console.error(err);
           status.textContent = "导入失败：" + (err && err.message ? err.message : "未知错误");

@@ -11,5 +11,7 @@
     apiToken: "",
     // true 时优先云端；false 时本地优先（云端仅手动同步可后续扩展）
     preferCloud: true,
+    // 入藏/导入时自动识别类型并归入「自动 · 风景」等集（需联网加载模型）
+    autoClassify: true,
   };
 })(window);

@@ -1,0 +1,13 @@
+{
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "PhotoMemory",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": false
+  },
+  "libVersion": "3.5.5",
+  "condition": {}
+}

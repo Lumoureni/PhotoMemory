@@ -12,3 +12,6 @@ Desktop.ini
 # Node / test artifacts
 node_modules/
 *.log
+
+# Server runtime data
+server/data/

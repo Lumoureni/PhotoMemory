@@ -56,15 +56,34 @@
 
   const cache = new Map(); // id -> { url, photo }
 
+  function useCloud() {
+    return !!(global.PhotoApi && PhotoApi.enabled() && global.PhotoConfig && PhotoConfig.preferCloud !== false);
+  }
+
   const Store = {
     _db: null,
+    mode: "local",
 
     async init() {
       this._db = await openDB();
+      if (useCloud()) {
+        try {
+          await PhotoApi.health();
+          this.mode = "cloud";
+        } catch (e) {
+          console.warn("云端不可用，回退本地", e);
+          this.mode = "local";
+        }
+      } else {
+        this.mode = "local";
+      }
       return this;
     },
 
     async list() {
+      if (this.mode === "cloud") {
+        return PhotoApi.list();
+      }
       const db = this._db;
       const tx = db.transaction(STORE, "readonly");
       const all = await reqToPromise(tx.objectStore(STORE).getAll());
@@ -76,6 +95,9 @@
     },
 
     async get(id) {
+      if (this.mode === "cloud") {
+        return PhotoApi.get(id);
+      }
       const tx = this._db.transaction(STORE, "readonly");
       return reqToPromise(tx.objectStore(STORE).get(id));
     },
@@ -97,12 +119,32 @@
           };
         } catch (_) { /* keep meta */ }
       }
+      let takenAt = meta.takenAt || (info.exif && info.exif.dateTime ? String(info.exif.dateTime).slice(0, 10).replace(/:/g, "-") : null) || new Date().toISOString().slice(0, 10);
+      if (info.exif && info.exif.dateTime && !meta.takenAt) {
+        const m = String(info.exif.dateTime).match(/^(\d{4}):(\d{2}):(\d{2})/);
+        if (m) takenAt = `${m[1]}-${m[2]}-${m[3]}`;
+      }
+
+      if (this.mode === "cloud") {
+        const remote = await PhotoApi.create(blob, {
+          title: meta.title,
+          place: meta.place,
+          note: meta.note,
+          takenAt,
+          favorite: meta.favorite,
+          width: info.width,
+          height: info.height,
+          mime: blob.type || "image/jpeg",
+        });
+        return remote;
+      }
+
       const photo = {
         id: uid(),
         title: (meta.title || "").trim() || "未命名一帧",
         place: (meta.place || "").trim(),
         note: (meta.note || "").trim(),
-        takenAt: meta.takenAt || (info.exif && info.exif.dateTime ? String(info.exif.dateTime).slice(0, 10).replace(/:/g, "-") : null) || new Date().toISOString().slice(0, 10),
+        takenAt,
         createdAt: Date.now(),
         width: info.width,
         height: info.height,
@@ -112,11 +154,6 @@
         exif: info.exif,
         blob,
       };
-      // EXIF 时间若像 YYYY:MM:DD 转成 YYYY-MM-DD
-      if (photo.exif && photo.exif.dateTime && !meta.takenAt) {
-        const m = String(photo.exif.dateTime).match(/^(\d{4}):(\d{2}):(\d{2})/);
-        if (m) photo.takenAt = `${m[1]}-${m[2]}-${m[3]}`;
-      }
       const db = this._db;
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).put(photo);
@@ -127,6 +164,9 @@
     },
 
     async remove(id) {
+      if (this.mode === "cloud") {
+        return PhotoApi.remove(id);
+      }
       const db = this._db;
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).delete(id);
@@ -139,6 +179,9 @@
     },
 
     async update(id, patch) {
+      if (this.mode === "cloud") {
+        return PhotoApi.update(id, patch);
+      }
       const existing = await this.get(id);
       if (!existing) throw new Error("照片不存在");
       const next = {
@@ -196,7 +239,19 @@
         exif: info.exif,
         blob,
       };
-      if (!photo.blob) throw new Error("缺少图片数据");
+      if (!photo.blob && !photo.url) throw new Error("缺少图片数据");
+      if (this.mode === "cloud") {
+        return PhotoApi.create(photo.blob, {
+          title: photo.title,
+          place: photo.place,
+          note: photo.note,
+          takenAt: photo.takenAt,
+          favorite: photo.favorite,
+          width: info.width,
+          height: info.height,
+          mime: info.mime,
+        });
+      }
       const db = this._db;
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).put(photo);
@@ -208,12 +263,19 @@
     },
 
     urlFor(photo) {
-      if (!photo || !photo.blob) return "";
-      const hit = cache.get(photo.id);
-      if (hit && hit.url) return hit.url;
-      const url = blobToUrl(photo.blob);
-      cache.set(photo.id, { url, photo });
-      return url;
+      if (!photo) return "";
+      if (photo.url) return photo.url;
+      if (photo.blob) {
+        const hit = cache.get(photo.id);
+        if (hit && hit.url) return hit.url;
+        const url = blobToUrl(photo.blob);
+        cache.set(photo.id, { url, photo });
+        return url;
+      }
+      if (this.mode === "cloud" && photo.id && global.PhotoApi && PhotoApi.enabled()) {
+        return (PhotoConfig.apiBase || "").replace(/\/+$/, "") + "/api/photos/" + photo.id + "/file";
+      }
+      return "";
     },
 
     async measure() {

@@ -1,0 +1,43 @@
+<view class="page" wx:if="{{photo}}">
+  <view class="stage card" bindtap="preview">
+    <image class="photo" src="{{src}}" mode="aspectFit" />
+  </view>
+
+  <view class="bar">
+    <button class="btn-ghost sm" bindtap="prev">上一张</button>
+    <text class="index brass">{{indexText}}</text>
+    <button class="btn-ghost sm" bindtap="next">下一张</button>
+  </view>
+
+  <view class="side card">
+    <view class="eyebrow">{{indexText}}</view>
+    <view class="title">{{photo.title}}</view>
+    <view class="muted">{{photo.takenAt}}{{photo.place ? ' · ' + photo.place : ''}}</view>
+    <view class="note" wx:if="{{photo.note}}">{{photo.note}}</view>
+
+    <block wx:if="{{!editing}}">
+      <view class="actions">
+        <button class="btn-brass sm" open-type="share">分享</button>
+        <button class="btn-ghost sm" bindtap="toggleFav">{{photo.favorite ? '已收藏' : '收藏'}}</button>
+        <button class="btn-ghost sm" bindtap="startEdit">编辑</button>
+        <button class="btn-ghost sm danger" bindtap="remove">移出</button>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="label">标题</view>
+      <input class="input" value="{{form.title}}" bindinput="onTitle" />
+      <view class="label">日期</view>
+      <picker mode="date" value="{{form.takenAt}}" bindchange="onDate">
+        <view class="input">{{form.takenAt}}</view>
+      </picker>
+      <view class="label">地点</view>
+      <input class="input" value="{{form.place}}" bindinput="onPlace" />
+      <view class="label">备注</view>
+      <textarea class="textarea" value="{{form.note}}" bindinput="onNote" />
+      <view class="actions">
+        <button class="btn-brass sm" bindtap="saveEdit">保存</button>
+        <button class="btn-ghost sm" bindtap="cancelEdit">取消</button>
+      </view>
+    </block>
+  </view>
+</view>

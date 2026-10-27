@@ -1,0 +1,4 @@
+{
+  "desc": "PhotoMemory",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

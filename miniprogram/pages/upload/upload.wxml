@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="eyebrow">INTAKE</view>
+  <view class="title">入藏一张记忆</view>
+  <view class="muted sub">照片将上传到你的 PhotoMemory 服务，网页与小程序可共用。</view>
+
+  <view class="drop card" bindtap="choose">
+    <block wx:if="{{tempPath}}">
+      <image class="preview" src="{{tempPath}}" mode="aspectFit" />
+      <view class="clear" catchtap="clear">×</view>
+    </block>
+    <block wx:else>
+      <view class="drop-title">拍照 / 从相册选择</view>
+      <view class="muted">支持 JPEG / PNG</view>
+    </block>
+  </view>
+
+  <view class="form card">
+    <view class="label">标题</view>
+    <input class="input" value="{{title}}" bindinput="onTitle" placeholder="例如：黄昏的窗边" />
+    <view class="label">日期</view>
+    <picker mode="date" value="{{takenAt}}" bindchange="onDate">
+      <view class="input">{{takenAt || '选择日期'}}</view>
+    </picker>
+    <view class="label">地点</view>
+    <input class="input" value="{{place}}" bindinput="onPlace" placeholder="例如：杭州 · 西湖" />
+    <view class="label">备注</view>
+    <textarea class="textarea" value="{{note}}" bindinput="onNote" placeholder="当时在想什么…" maxlength="500" />
+    <button class="btn-brass save" bindtap="save" disabled="{{saving}}">{{saving ? '入藏中…' : '入藏影集'}}</button>
+  </view>
+</view>

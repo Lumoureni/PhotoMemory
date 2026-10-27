@@ -1,0 +1,44 @@
+<view class="page">
+  <view class="head">
+    <view>
+      <view class="eyebrow">COLLECTION</view>
+      <view class="title">全部影帧</view>
+    </view>
+    <view class="count brass">{{photos.length}} 帧</view>
+  </view>
+
+  <view class="tools">
+    <input class="search" placeholder="搜索标题 / 地点 / 备注" value="{{query}}" bindinput="onQuery" confirm-type="search" />
+    <view class="chips">
+      <view class="chip {{filter==='all'?'on':''}}" data-filter="all" bindtap="onFilterTap">全部</view>
+      <view class="chip {{filter==='fav'?'on':''}}" data-filter="fav" bindtap="onFilterTap">收藏</view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="muted center">加载中…</view>
+  <view wx:elif="{{error}}" class="error">
+    <text>{{error}}</text>
+    <button class="btn-ghost" bindtap="load">重试</button>
+  </view>
+  <view wx:elif="{{!shown || !shown.length}}" class="empty">
+    <view class="empty-title">暗房尚空</view>
+    <view class="muted">没有匹配的照片，或去「入藏」上传第一张</view>
+    <button class="btn-brass" bindtap="goUpload">去入藏</button>
+  </view>
+  <view wx:else class="grid">
+    <view
+      class="item card"
+      wx:for="{{shown}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="openPhoto"
+    >
+      <image class="img" src="{{item.thumb}}" mode="aspectFill" lazy-load />
+      <view class="meta">
+        <view class="name">{{item.title}}</view>
+        <view class="muted">{{item.dateText}}{{item.place ? ' · ' + item.place : ''}}</view>
+      </view>
+      <view class="fav {{item.favorite ? 'on' : ''}}">{{item.favorite ? '★' : '☆'}}</view>
+    </view>
+  </view>
+</view>

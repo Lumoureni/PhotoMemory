@@ -1,0 +1,23 @@
+.page {
+  padding: 32rpx 32rpx 80rpx;
+}
+
+.title {
+  font-size: 44rpx;
+  margin-bottom: 12rpx;
+}
+
+.sub {
+  margin-bottom: 28rpx;
+}
+
+.block {
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+}
+
+.h {
+  font-size: 30rpx;
+  margin-bottom: 12rpx;
+  color: #C4A574;
+}

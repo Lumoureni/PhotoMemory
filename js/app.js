@@ -1506,12 +1506,24 @@
       const m = await PhotoStore.measure();
       const fill = $("#meterFill");
       const text = $("#meterText");
+      const modeEl = $("#cloudModeText");
       let pct = 0;
       if (m.quota > 0) pct = Math.min(100, (m.usage / m.quota) * 100);
       fill.style.width = (pct < 1 && m.count ? 2 : pct) + "%";
-      text.textContent =
-        `${m.count} 帧 · 影像约 ${formatBytes(m.bytes)}` +
-        (m.quota ? ` · 站点用量 ${formatBytes(m.usage)} / ${formatBytes(m.quota)}` : "");
+      if (PhotoStore.mode === "cloud") {
+        text.textContent = `${m.count} 帧 · 云端共用（小程序可同步）`;
+        if (modeEl) {
+          const base = (window.PhotoConfig && PhotoConfig.apiBase) || "";
+          modeEl.textContent = base ? `API：${base}` : "";
+        }
+      } else {
+        text.textContent =
+          `${m.count} 帧 · 影像约 ${formatBytes(m.bytes)}` +
+          (m.quota ? ` · 站点用量 ${formatBytes(m.usage)} / ${formatBytes(m.quota)}` : "");
+        if (modeEl) {
+          modeEl.textContent = "当前：本地 IndexedDB（未配置 js/config.js 云同步）";
+        }
+      }
     } catch (_) {
       /* ignore */
     }

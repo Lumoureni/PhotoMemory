@@ -262,6 +262,7 @@
         <button type="button" class="btn btn-brass btn-sm" id="btnShare">分享此帧</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btnFav" aria-pressed="false">收藏</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btnEdit">编辑信息</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnDetails">详细信息</button>
         <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnDelete">移出</button>
       </div>
       <div class="viewer-actions" id="viewerActionsEdit" hidden>
@@ -295,10 +296,24 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <!-- 详细信息面板 -->
+  <div class="details-sheet" id="detailsSheet" hidden role="dialog" aria-modal="true" aria-label="详细信息">
+    <div class="details-sheet-panel">
+      <header class="share-sheet-head">
+        <p class="eyebrow">DETAILS</p>
+        <h2>详细信息</h2>
+        <button type="button" class="icon-btn" id="detailsClose" aria-label="关闭">×</button>
+      </header>
+      <dl class="details-list" id="detailsList"></dl>
+      <p class="share-hint" id="detailsHint"></p>
+    </div>
+  </div>
+
   <!-- 视图切换全屏粒子层 -->
   <canvas class="view-wipe" id="viewWipe" aria-hidden="true"></canvas>
 
   <script src="js/store.js"></script>
+  <script src="js/exif.js"></script>
   <script src="js/backup.js"></script>
   <script src="js/particles.js"></script>
   <script src="js/app.js"></script>

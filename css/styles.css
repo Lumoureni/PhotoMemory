@@ -1589,6 +1589,69 @@ button {
   color: var(--muted);
 }
 
+/* —— 详细信息 —— */
+.details-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 620;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 6, 4, 0.88);
+  backdrop-filter: blur(12px);
+}
+
+.details-sheet[hidden] {
+  display: none !important;
+}
+
+.details-sheet-panel {
+  width: min(100%, 400px);
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  background: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 24px;
+  animation: sheetIn 0.4s var(--ease);
+}
+
+.details-list {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.details-list .row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.details-list .row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.details-list dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.details-list dd {
+  margin: 0;
+  color: var(--paper);
+  word-break: break-word;
+  line-height: 1.55;
+}
+
 /* —— Toast —— */
 .toast {
   position: fixed;

@@ -982,10 +982,25 @@
 
     $("#btnShare").addEventListener("click", () => openShare());
 
+    const detailsBtn = $("#btnDetails");
+    if (detailsBtn) detailsBtn.addEventListener("click", () => openDetails());
+    const detailsClose = $("#detailsClose");
+    if (detailsClose) detailsClose.addEventListener("click", closeDetails);
+    const detailsSheet = $("#detailsSheet");
+    if (detailsSheet) {
+      detailsSheet.addEventListener("click", (e) => {
+        if (e.target === detailsSheet) closeDetails();
+      });
+    }
+
     // 键盘
     window.addEventListener("keydown", (e) => {
       if ($("#shareSheet") && !$("#shareSheet").hidden) {
         if (e.key === "Escape") closeShare();
+        return;
+      }
+      if ($("#detailsSheet") && !$("#detailsSheet").hidden) {
+        if (e.key === "Escape") closeDetails();
         return;
       }
       if (!state.viewer.open) return;
@@ -1217,6 +1232,73 @@
     });
   }
 
+  /* ── 详细信息 ── */
+  function closeDetails() {
+    const el = $("#detailsSheet");
+    if (el) el.hidden = true;
+  }
+
+  function openDetails() {
+    const list = currentList();
+    const photo = list[state.viewer.index];
+    const panel = $("#detailsList");
+    const hint = $("#detailsHint");
+    if (!photo || !panel) return;
+
+    const rows = [];
+    const add = (label, value) => {
+      if (value == null || value === "") return;
+      rows.push({ label, value: String(value) });
+    };
+
+    add("标题", photo.title);
+    add("日期", formatDate(photo.takenAt));
+    add("地点", photo.place);
+    add("备注", photo.note);
+    add("尺寸", photo.width && photo.height ? `${photo.width} × ${photo.height}` : null);
+    add("文件大小", formatBytes(photo.size));
+    add("格式", photo.mime);
+    add("入藏于", photo.createdAt ? new Date(photo.createdAt).toLocaleString("zh-CN") : null);
+    add("收藏", photo.favorite ? "是" : "否");
+
+    if (window.PhotoExif && photo.exif) {
+      PhotoExif.formatExifForDisplay(photo).forEach((r) => add(r.label, r.value));
+    } else if (window.PhotoExif && photo.blob) {
+      // 兼容旧数据：懒解析一次
+      PhotoExif.extractImageInfo(photo.blob).then((info) => {
+        if (info && info.exif) {
+          photo.exif = info.exif;
+          photo.width = info.width || photo.width;
+          photo.height = info.height || photo.height;
+          PhotoStore.update(photo.id, {
+            exif: info.exif,
+            width: photo.width,
+            height: photo.height,
+          }).catch(() => {});
+          openDetails();
+        }
+      }).catch(() => {});
+    }
+
+    panel.innerHTML = "";
+    rows.forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `<dt></dt><dd></dd>`;
+      row.querySelector("dt").textContent = r.label;
+      row.querySelector("dd").textContent = r.value;
+      panel.appendChild(row);
+    });
+
+    const hasExif = !!(photo.exif && Object.keys(photo.exif).length);
+    hint.textContent = hasExif
+      ? "EXIF 来自图片文件本身，入藏/导入时自动解析。"
+      : "此文件未包含可识别的 EXIF（可能是合成图或已剥离元数据）。";
+
+    const sheet = $("#detailsSheet");
+    sheet.hidden = false;
+  }
+
   /* ── 备份导出 / 导入 ── */
   function bindBackup() {
     const status = $("#backupStatus");
@@ -1280,6 +1362,7 @@
               mime: item.meta.mime || item.blob.type,
               size: item.blob.size,
               favorite: !!item.meta.favorite,
+              exif: item.meta.exif || null,
               blob: item.blob,
             });
             ok++;

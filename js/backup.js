@@ -194,6 +194,7 @@
       mime: p.mime,
       size: p.size,
       favorite: !!p.favorite,
+      exif: p.exif || null,
       file: `images/${p.id}${extFromMime(p.mime)}`,
     }));
 

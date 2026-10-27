@@ -155,7 +155,21 @@
      * 旧照片粒子「随风消散」，新照片从风来的方向轻柔汇入
      */
     async transition(fromImg, toImg, onMid, duration = 1050) {
-      if (this.busy) return;
+      // 若上一段仍在播，等它结束再开始，避免静默 return 导致调用方卡住
+      if (this.busy) {
+        await new Promise((resolve) => {
+          const t0 = performance.now();
+          const wait = () => {
+            if (!this.busy || performance.now() - t0 > 2000) resolve();
+            else requestAnimationFrame(wait);
+          };
+          wait();
+        });
+        if (this.busy) {
+          if (onMid) onMid();
+          return;
+        }
+      }
       this.busy = true;
 
       const { w, h, dpr } = fitCanvas(this.canvas);

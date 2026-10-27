@@ -923,9 +923,7 @@
       btn.appendChild(img);
       btn.addEventListener("click", () => {
         if (i === state.viewer.index || state.viewer.switching) return;
-        const delta = i - state.viewer.index;
-        // 简化：直接跳
-        state.viewer.index = i;
+        // 不要在这里改 index：switchToIndex 需要旧 index 算差值
         switchToIndex(i);
       });
       wrap.appendChild(btn);
@@ -936,12 +934,19 @@
     if (state.viewer.switching) return;
     const list = currentList();
     if (index < 0 || index >= list.length) return;
-    const delta = index - state.viewer.index;
-    if (delta === 0) return;
-    // 复用 switchPhoto 的粒子逻辑：临时改 index 计算
+    if (index === state.viewer.index) return;
+    // 上一段粒子若仍在飞，先等它结束，避免 busy 提前 return 卡住
+    if (viewerFx && viewerFx.busy) {
+      for (let i = 0; i < 40 && viewerFx.busy; i++) {
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      if (viewerFx.busy) return;
+    }
+
     state.viewer.switching = true;
     const viewer = $("#viewer");
     viewer.classList.add("is-animating");
+    updateThumbActiveTo(index);
 
     const fromImg = activeImgEl();
     const toImg = standbyImgEl();
@@ -971,6 +976,12 @@
     fromImg.classList.remove("is-leaving");
     viewer.classList.remove("is-animating");
     state.viewer.switching = false;
+  }
+
+  function updateThumbActiveTo(index) {
+    $$(".thumb", $("#viewerThumbs")).forEach((t, i) => {
+      t.classList.toggle("is-active", i === index);
+    });
   }
 
   function renderSideMeta(photo, total) {

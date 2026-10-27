@@ -7,6 +7,8 @@
 
   const state = {
     photos: [],
+    collections: [],
+    albumId: "", // "" = 全部, "none" = 未分类
     filter: "all",
     query: "",
     viewer: {
@@ -329,6 +331,11 @@
     if (state.filter === "fav") {
       list = list.filter((p) => p.favorite);
     }
+    if (state.albumId === "none") {
+      list = list.filter((p) => !(p.collectionIds && p.collectionIds.length));
+    } else if (state.albumId) {
+      list = list.filter((p) => p.collectionIds && p.collectionIds.includes(state.albumId));
+    }
     if (state.query) {
       list = list.filter((p) => matchesQuery(p, state.query));
     }
@@ -478,6 +485,153 @@
     }
   }
 
+  function renderAlbumBar() {
+    const wrap = $("#albumChips");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    const mk = (id, label, count) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "album-chip" + (state.albumId === id ? " is-active" : "");
+      btn.dataset.album = id;
+      btn.innerHTML = `<span></span><span class="n"></span>`;
+      btn.querySelector("span").textContent = label;
+      btn.querySelector(".n").textContent = count != null ? String(count) : "";
+      btn.addEventListener("click", () => {
+        state.albumId = id;
+        renderGallery();
+      });
+      wrap.appendChild(btn);
+    };
+    const uncategorized = state.photos.filter((p) => !(p.collectionIds && p.collectionIds.length)).length;
+    mk("", "全部", state.photos.length);
+    state.collections.forEach((c) => {
+      const n = state.photos.filter((p) => p.collectionIds && p.collectionIds.includes(c.id)).length;
+      mk(c.id, c.name, n);
+    });
+    if (uncategorized > 0 || state.collections.length) {
+      mk("none", "未分类", uncategorized);
+    }
+    // 上传页集下拉
+    const sel = $("#fieldCollection");
+    if (sel) {
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">不放入集</option>`;
+      state.collections.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+      if (cur) sel.value = cur;
+    }
+  }
+
+  async function refreshCollections() {
+    try {
+      state.collections = await PhotoStore.listCollections();
+    } catch (e) {
+      console.warn(e);
+      state.collections = [];
+    }
+    renderAlbumBar();
+  }
+
+  function bindAlbums() {
+    const openNew = () => {
+      $("#albumStatus").textContent = "";
+      $("#albumName").value = "";
+      $("#albumNote").value = "";
+      $("#albumSheet").hidden = false;
+      $("#albumName").focus();
+    };
+    $("#btnNewAlbum").addEventListener("click", openNew);
+    $("#albumSheetClose").addEventListener("click", () => {
+      $("#albumSheet").hidden = true;
+    });
+    $("#albumSheet").addEventListener("click", (e) => {
+      if (e.target === $("#albumSheet")) $("#albumSheet").hidden = true;
+    });
+    $("#btnCreateAlbum").addEventListener("click", async () => {
+      const name = $("#albumName").value.trim();
+      if (!name) {
+        $("#albumStatus").textContent = "请填写集名称";
+        return;
+      }
+      try {
+        const col = await PhotoStore.createCollection(name, $("#albumNote").value);
+        state.collections.unshift(col);
+        state.albumId = col.id;
+        $("#albumSheet").hidden = true;
+        renderGallery();
+        toast(`已创建集「${col.name}」`);
+      } catch (e) {
+        $("#albumStatus").textContent = e.message || "创建失败";
+      }
+    });
+
+    // 收纳入集
+    $("#btnAlbum").addEventListener("click", () => openAssignSheet());
+    $("#assignClose").addEventListener("click", () => {
+      $("#assignSheet").hidden = true;
+    });
+    $("#assignSheet").addEventListener("click", (e) => {
+      if (e.target === $("#assignSheet")) $("#assignSheet").hidden = true;
+    });
+    $("#btnAssignNew").addEventListener("click", () => {
+      $("#assignSheet").hidden = true;
+      openNew();
+    });
+    $("#btnAssignSave").addEventListener("click", async () => {
+      const list = currentList();
+      const photo = list[state.viewer.index];
+      if (!photo) return;
+      const ids = $$("#assignList input[type=checkbox]")
+        .filter((c) => c.checked)
+        .map((c) => c.value);
+      try {
+        const next = await PhotoStore.update(photo.id, { collectionIds: ids });
+        const idx = state.photos.findIndex((p) => p.id === photo.id);
+        if (idx >= 0) state.photos[idx] = next;
+        await refreshCollections();
+        renderGallery();
+        $("#assignSheet").hidden = true;
+        toast("收纳已更新");
+      } catch (e) {
+        toast(e.message || "保存失败");
+      }
+    });
+  }
+
+  async function openAssignSheet() {
+    const list = currentList();
+    const photo = list[state.viewer.index];
+    if (!photo) return;
+    await refreshCollections();
+    const box = $("#assignList");
+    box.innerHTML = "";
+    const current = photo.collectionIds || [];
+    state.collections.forEach((c) => {
+      const row = document.createElement("label");
+      row.className = "assign-row" + (current.includes(c.id) ? " is-on" : "");
+      row.innerHTML = `<input type="checkbox" /><span class="name"></span><span class="cnt"></span>`;
+      const input = row.querySelector("input");
+      input.value = c.id;
+      input.checked = current.includes(c.id);
+      row.querySelector(".name").textContent = c.name;
+      const n = state.photos.filter((p) => p.collectionIds && p.collectionIds.includes(c.id)).length;
+      row.querySelector(".cnt").textContent = n + " 帧";
+      input.addEventListener("change", () => {
+        row.classList.toggle("is-on", input.checked);
+      });
+      box.appendChild(row);
+    });
+    if (!state.collections.length) {
+      box.innerHTML = `<p class="muted" style="margin:0">还没有集，点下方「新建集」创建。</p>`;
+    }
+    $("#assignSheet").hidden = false;
+  }
+
   function bindFilters() {
     $("#galleryFilters").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-filter]");
@@ -595,6 +749,7 @@
           place: $("#fieldPlace").value,
           note: $("#fieldNote").value,
           takenAt: $("#fieldDate").value || new Date().toISOString().slice(0, 10),
+          collectionIds: $("#fieldCollection").value ? [$("#fieldCollection").value] : [],
         };
         let count = 0;
         for (let i = 0; i < state.pendingFiles.length; i++) {
@@ -1535,6 +1690,16 @@
     renderGallery();
     $("#photoCount").textContent = `${state.photos.length} 帧`;
     updateHeroStatus();
+    renderAlbumBar();
+    const heading = $("#galleryHeading");
+    if (heading) {
+      if (!state.albumId) heading.textContent = "全部影帧";
+      else if (state.albumId === "none") heading.textContent = "未分类";
+      else {
+        const col = state.collections.find((c) => c.id === state.albumId);
+        heading.textContent = col ? col.name : "全部影帧";
+      }
+    }
     if ($$(".view").some((v) => v.dataset.view === "home" && v.classList.contains("is-active"))) {
       startHomeCarousel();
     }
@@ -1576,6 +1741,7 @@
 
     bindNav();
     bindFilters();
+    bindAlbums();
     bindUpload();
     bindViewer();
     bindShare();
@@ -1583,6 +1749,7 @@
     bindBackup();
 
     await refreshPhotos();
+    await refreshCollections();
     await handleHashRoute();
 
     // 默认视图：一屏首页

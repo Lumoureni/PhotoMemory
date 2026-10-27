@@ -9,6 +9,8 @@ Page({
     form: { title: "", place: "", note: "", takenAt: "" },
     total: 0,
     index: 0,
+    collections: [],
+    checkedIds: [],
   },
 
   async onLoad(query) {
@@ -38,7 +40,11 @@ Page({
           note: photo.note || "",
           takenAt: photo.takenAt || "",
         },
+        checkedIds: (photo.collectionIds || []).slice(),
       });
+      try {
+        this.setData({ collections: await api.listCollections() });
+      } catch (_) {}
       wx.setNavigationBarTitle({ title: photo.title || "查看" });
     } catch (e) {
       wx.showToast({ title: e.message || "加载失败", icon: "none" });
@@ -69,6 +75,43 @@ Page({
     } catch (e) {
       wx.showToast({ title: e.message || "失败", icon: "none" });
     }
+  },
+
+  openAssign() {
+    const { photo, collections } = this.data;
+    const names = collections.map((c) => {
+      const on = (photo.collectionIds || []).indexOf(c.id) >= 0;
+      return (on ? "✓ " : "□ ") + c.name;
+    });
+    if (!names.length) {
+      wx.showModal({
+        title: "还没有集",
+        content: "请先在影集页「＋ 新建集」",
+        showCancel: false,
+      });
+      return;
+    }
+    wx.showActionSheet({
+      itemList: names.concat(["完成收纳"]),
+      success: async (res) => {
+        if (res.tapIndex >= collections.length) {
+          // 完成 — 已逐项写入
+          await this.load();
+          return;
+        }
+        const col = collections[res.tapIndex];
+        const ids = (photo.collectionIds || []).slice();
+        const i = ids.indexOf(col.id);
+        if (i >= 0) ids.splice(i, 1);
+        else ids.push(col.id);
+        await api.updatePhoto(photo.id, { collectionIds: ids });
+        await this.load();
+        wx.showToast({
+          title: i >= 0 ? "已移出该集" : "已收入该集",
+          icon: "none",
+        });
+      },
+    });
   },
 
   startEdit() {

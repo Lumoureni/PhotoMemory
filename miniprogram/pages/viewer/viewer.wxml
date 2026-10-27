@@ -20,6 +20,7 @@
         <button class="btn-brass sm" open-type="share">分享</button>
         <button class="btn-ghost sm" bindtap="toggleFav">{{photo.favorite ? '已收藏' : '收藏'}}</button>
         <button class="btn-ghost sm" bindtap="startEdit">编辑</button>
+        <button class="btn-ghost sm" bindtap="openAssign">收纳入集</button>
         <button class="btn-ghost sm danger" bindtap="remove">移出</button>
       </view>
     </block>

@@ -2,13 +2,29 @@
   <view class="head">
     <view>
       <view class="eyebrow">COLLECTION</view>
-      <view class="title">全部影帧</view>
+      <view class="title">{{albumName}}</view>
     </view>
     <view class="count brass">{{photos.length}} 帧</view>
   </view>
 
+  <scroll-view class="album-scroll" scroll-x enable-flex>
+    <view class="album-chips">
+      <view class="album-chip {{albumId===''?'on':''}}" data-id="" bindtap="onAlbumTap">全部</view>
+      <view
+        class="album-chip {{albumId===item.id?'on':''}}"
+        wx:for="{{collections}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onAlbumTap"
+      >{{item.name}}</view>
+      <view class="album-chip {{albumId==='none'?'on':''}}" data-id="none" bindtap="onAlbumTap">未分类</view>
+      <view class="album-chip new" bindtap="newAlbum">＋ 新建集</view>
+      <view class="album-chip del" wx:if="{{albumId && albumId!=='none'}}" bindtap="removeAlbum">删除此集</view>
+    </view>
+  </scroll-view>
+
   <view class="tools">
-    <input class="search" placeholder="搜索标题 / 地点 / 备注" value="{{query}}" bindinput="onQuery" confirm-type="search" />
+    <input class="search" placeholder="搜索标题 / 地点 / 备注" value="{{query}}" bindinput="onQuery" />
     <view class="chips">
       <view class="chip {{filter==='all'?'on':''}}" data-filter="all" bindtap="onFilterTap">全部</view>
       <view class="chip {{filter==='fav'?'on':''}}" data-filter="fav" bindtap="onFilterTap">收藏</view>
@@ -20,9 +36,9 @@
     <text>{{error}}</text>
     <button class="btn-ghost" bindtap="load">重试</button>
   </view>
-  <view wx:elif="{{!shown || !shown.length}}" class="empty">
-    <view class="empty-title">暗房尚空</view>
-    <view class="muted">没有匹配的照片，或去「入藏」上传第一张</view>
+  <view wx:elif="{{!shown.length}}" class="empty">
+    <view class="empty-title">这里还没有照片</view>
+    <view class="muted">可在「入藏」选择放入某个集</view>
     <button class="btn-brass" bindtap="goUpload">去入藏</button>
   </view>
   <view wx:else class="grid">

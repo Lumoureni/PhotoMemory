@@ -91,6 +91,7 @@
         note: meta.note,
         takenAt: meta.takenAt,
         favorite: !!meta.favorite,
+        collectionIds: Array.isArray(meta.collectionIds) ? meta.collectionIds : [],
         mime: (file && file.type) || meta.mime || "image/jpeg",
         width: meta.width || 0,
         height: meta.height || 0,
@@ -115,6 +116,34 @@
 
     async remove(id) {
       await req("/api/photos/" + encodeURIComponent(id), { method: "DELETE" });
+      return true;
+    },
+
+    async listCollections() {
+      const data = await req("/api/collections");
+      return data.collections || [];
+    },
+
+    async createCollection(name, note) {
+      const data = await req("/api/collections", {
+        method: "POST",
+        json: true,
+        body: JSON.stringify({ name, note }),
+      });
+      return data.collection;
+    },
+
+    async updateCollection(id, patch) {
+      const data = await req("/api/collections/" + encodeURIComponent(id), {
+        method: "PATCH",
+        json: true,
+        body: JSON.stringify(patch),
+      });
+      return data.collection;
+    },
+
+    async deleteCollection(id) {
+      await req("/api/collections/" + encodeURIComponent(id), { method: "DELETE" });
       return true;
     },
   };

@@ -19,10 +19,26 @@ Page({
     note: "",
     takenAt: "",
     saving: false,
+    collections: [],
+    collectionNames: ["不放入集"],
+    collectionIndex: 0,
   },
 
-  onLoad() {
+  onShow() {
     this.setData({ takenAt: today() });
+    this.loadCollections();
+  },
+
+  async loadCollections() {
+    try {
+      const collections = await api.listCollections();
+      const collectionNames = ["不放入集"].concat(collections.map((c) => c.name));
+      this.setData({ collections, collectionNames });
+    } catch (_) {}
+  },
+
+  onCollection(e) {
+    this.setData({ collectionIndex: Number(e.detail.value) || 0 });
   },
 
   choose() {
@@ -60,7 +76,8 @@ Page({
   },
 
   async save() {
-    const { tempPath, title, place, note, takenAt, width, height } = this.data;
+    const { tempPath, title, place, note, takenAt, width, height, collections, collectionIndex } =
+      this.data;
     if (!tempPath) {
       wx.showToast({ title: "请先选择照片", icon: "none" });
       return;
@@ -76,6 +93,7 @@ Page({
           fail: reject,
         });
       });
+      const col = collectionIndex > 0 ? collections[collectionIndex - 1] : null;
       await api.createPhoto(base64, {
         title,
         place,
@@ -84,6 +102,7 @@ Page({
         width,
         height,
         mime: "image/jpeg",
+        collectionIds: col ? [col.id] : [],
       });
       wx.showToast({ title: "已入藏", icon: "success" });
       this.setData({

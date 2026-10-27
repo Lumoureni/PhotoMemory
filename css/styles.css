@@ -638,6 +638,120 @@ button {
   gap: 10px;
 }
 
+.album-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -4px 0 14px;
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.album-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.album-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  transition: all 0.3s var(--ease);
+  white-space: nowrap;
+}
+
+.album-chip:hover {
+  border-color: var(--brass-dim);
+  color: var(--paper);
+}
+
+.album-chip.is-active {
+  border-color: var(--brass);
+  background: rgba(196, 165, 116, 0.12);
+  color: var(--brass);
+}
+
+.album-chip .n {
+  opacity: 0.7;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.album-actions {
+  flex: 0 0 auto;
+}
+
+.album-sheet-panel .field input {
+  width: 100%;
+}
+
+.assign-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 4px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.assign-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+.assign-row:hover {
+  border-color: var(--brass-dim);
+}
+
+.assign-row.is-on {
+  border-color: var(--brass);
+  background: rgba(196, 165, 116, 0.06);
+}
+
+.assign-row input {
+  accent-color: var(--brass);
+}
+
+.assign-row .name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.assign-row .cnt {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.field select,
+select#fieldCollection {
+  background: var(--deep);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 10px 12px;
+  color: var(--paper);
+  width: 100%;
+}
+
+.field select:focus {
+  outline: none;
+  border-color: var(--brass);
+}
+
 .search-box input {
   width: min(220px, 36vw);
   background: var(--ink);

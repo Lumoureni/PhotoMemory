@@ -82,7 +82,7 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">COLLECTION</p>
-            <h2 class="section-title">全部影帧</h2>
+            <h2 class="section-title" id="galleryHeading">全部影帧</h2>
           </div>
           <div class="gallery-tools">
             <label class="search-box">
@@ -96,6 +96,14 @@
             </div>
           </div>
         </div>
+
+        <div class="album-bar" id="albumBar">
+          <div class="album-chips" id="albumChips" role="tablist" aria-label="自建集"></div>
+          <div class="album-actions">
+            <button type="button" class="chip" id="btnNewAlbum">＋ 新建集</button>
+          </div>
+        </div>
+
         <div class="masonry" id="galleryGrid" aria-live="polite"></div>
         <div class="empty-state" id="emptyState">
           <div class="empty-frame" aria-hidden="true">
@@ -155,6 +163,12 @@
             <label class="field field-full">
               <span class="field-label">备注</span>
               <textarea id="fieldNote" name="note" rows="3" placeholder="当时在想什么、风从哪边来……" maxlength="500"></textarea>
+            </label>
+            <label class="field field-full">
+              <span class="field-label">收纳到集</span>
+              <select id="fieldCollection" name="collection">
+                <option value="">不放入集</option>
+              </select>
             </label>
           </div>
 
@@ -264,6 +278,7 @@
         <button type="button" class="btn btn-ghost btn-sm" id="btnFav" aria-pressed="false">收藏</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btnEdit">编辑信息</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btnDetails">详细信息</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnAlbum">收纳入集</button>
         <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnDelete">移出</button>
       </div>
       <div class="viewer-actions" id="viewerActionsEdit" hidden>
@@ -296,6 +311,46 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- 新建集 -->
+  <div class="share-sheet" id="albumSheet" hidden role="dialog" aria-modal="true" aria-label="新建集">
+    <div class="share-sheet-panel album-sheet-panel">
+      <header class="share-sheet-head">
+        <p class="eyebrow">NEW ALBUM</p>
+        <h2>新建一个集</h2>
+        <button type="button" class="icon-btn" id="albumSheetClose" aria-label="关闭">×</button>
+      </header>
+      <label class="field">
+        <span class="field-label">名称</span>
+        <input type="text" id="albumName" maxlength="40" placeholder="例如：2026 旅行" />
+      </label>
+      <label class="field" style="margin-top:12px">
+        <span class="field-label">说明（可选）</span>
+        <input type="text" id="albumNote" maxlength="80" placeholder="一句话描述" />
+      </label>
+      <div class="share-sheet-actions">
+        <button type="button" class="btn btn-brass" id="btnCreateAlbum">创建</button>
+      </div>
+      <p class="form-status" id="albumStatus" role="status"></p>
+    </div>
+  </div>
+
+  <!-- 收纳入集 -->
+  <div class="share-sheet" id="assignSheet" hidden role="dialog" aria-modal="true" aria-label="收纳入集">
+    <div class="share-sheet-panel album-sheet-panel">
+      <header class="share-sheet-head">
+        <p class="eyebrow">ASSIGN</p>
+        <h2>收纳入集</h2>
+        <button type="button" class="icon-btn" id="assignClose" aria-label="关闭">×</button>
+      </header>
+      <div class="assign-list" id="assignList"></div>
+      <p class="share-hint">可多选；取消勾选即移出该集。删除集不会删除照片。</p>
+      <div class="share-sheet-actions">
+        <button type="button" class="btn btn-ghost" id="btnAssignNew">＋ 新建集</button>
+        <button type="button" class="btn btn-brass" id="btnAssignSave">保存收纳</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 详细信息面板 -->
   <div class="details-sheet" id="detailsSheet" hidden role="dialog" aria-modal="true" aria-label="详细信息">

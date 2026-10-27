@@ -19,13 +19,14 @@ fs.mkdirSync(FILES_DIR, { recursive: true });
 
 function loadDb() {
   try {
-    if (!fs.existsSync(DB_FILE)) return { photos: [] };
+    if (!fs.existsSync(DB_FILE)) return { photos: [], collections: [] };
     const raw = fs.readFileSync(DB_FILE, "utf8");
     const db = JSON.parse(raw);
     if (!Array.isArray(db.photos)) db.photos = [];
+    if (!Array.isArray(db.collections)) db.collections = [];
     return db;
   } catch (_) {
-    return { photos: [] };
+    return { photos: [], collections: [] };
   }
 }
 
@@ -90,8 +91,26 @@ function publicPhoto(p) {
     mime: p.mime,
     size: p.size,
     favorite: !!p.favorite,
+    collectionIds: Array.isArray(p.collectionIds) ? p.collectionIds : [],
     file: `/api/photos/${p.id}/file`,
   };
+}
+
+function publicCollection(c, photos) {
+  const photoIds = Array.isArray(c.photoIds) ? c.photoIds : [];
+  return {
+    id: c.id,
+    name: c.name,
+    note: c.note || "",
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    photoIds,
+    count: photoIds.length,
+  };
+}
+
+function ensureCollectionShape(db) {
+  if (!Array.isArray(db.collections)) db.collections = [];
 }
 
 function extFromMime(mime) {
@@ -135,6 +154,86 @@ const server = http.createServer(async (req, res) => {
     }
 
     const db = loadDb();
+    ensureCollectionShape(db);
+
+    // ── 集合 ──
+    if (pathname === "/api/collections" && req.method === "GET") {
+      const list = db.collections
+        .slice()
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .map((c) => publicCollection(c, db.photos));
+      return json(res, 200, { collections: list });
+    }
+
+    if (pathname === "/api/collections" && req.method === "POST") {
+      const raw = await readBody(req, 32 * 1024);
+      const body = JSON.parse(raw.toString("utf8") || "{}");
+      const name = String(body.name || "").trim();
+      if (!name) return json(res, 400, { error: "name required" });
+      const col = {
+        id: uid(),
+        name: name.slice(0, 40),
+        note: String(body.note || "").trim(),
+        photoIds: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      db.collections.push(col);
+      saveDb(db);
+      return json(res, 201, { collection: publicCollection(col, db.photos) });
+    }
+
+    const cm = pathname.match(/^\/api\/collections\/([^/]+)$/);
+    if (cm) {
+      const cid = cm[1];
+      const cidx = db.collections.findIndex((c) => c.id === cid);
+      const col = cidx >= 0 ? db.collections[cidx] : null;
+      if (!col) return json(res, 404, { error: "collection not found" });
+
+      if (req.method === "GET") {
+        return json(res, 200, { collection: publicCollection(col, db.photos) });
+      }
+      if (req.method === "PATCH") {
+        const raw = await readBody(req, 64 * 1024);
+        const body = JSON.parse(raw.toString("utf8") || "{}");
+        if (body.name != null) {
+          const name = String(body.name).trim();
+          if (!name) return json(res, 400, { error: "name required" });
+          col.name = name.slice(0, 40);
+        }
+        if (body.note != null) col.note = String(body.note || "").trim();
+        if (Array.isArray(body.photoIds)) {
+          col.photoIds = body.photoIds.map(String);
+          // 同步 photo.collectionIds
+          for (const p of db.photos) {
+            const has = col.photoIds.includes(p.id);
+            const ids = Array.isArray(p.collectionIds) ? p.collectionIds.slice() : [];
+            const inCol = ids.includes(col.id);
+            if (has && !inCol) ids.push(col.id);
+            if (!has && inCol) {
+              const i = ids.indexOf(col.id);
+              if (i >= 0) ids.splice(i, 1);
+            }
+            p.collectionIds = ids;
+          }
+        }
+        col.updatedAt = Date.now();
+        db.collections[cidx] = col;
+        saveDb(db);
+        return json(res, 200, { collection: publicCollection(col, db.photos) });
+      }
+      if (req.method === "DELETE") {
+        // 仅移除集，不删照片
+        for (const p of db.photos) {
+          if (Array.isArray(p.collectionIds)) {
+            p.collectionIds = p.collectionIds.filter((x) => x !== col.id);
+          }
+        }
+        db.collections.splice(cidx, 1);
+        saveDb(db);
+        return json(res, 200, { ok: true });
+      }
+    }
 
     // 列表
     if (pathname === "/api/photos" && req.method === "GET") {
@@ -156,6 +255,7 @@ const server = http.createServer(async (req, res) => {
       const fileAbs = path.join(FILES_DIR, fileRel);
       fs.writeFileSync(fileAbs, bin);
 
+      const collectionIds = Array.isArray(body.collectionIds) ? body.collectionIds.map(String) : [];
       const photo = {
         id,
         title: (body.title || "").trim() || "未命名一帧",
@@ -168,9 +268,16 @@ const server = http.createServer(async (req, res) => {
         mime,
         size: bin.length,
         favorite: !!body.favorite,
+        collectionIds,
         file: fileRel,
       };
       db.photos.push(photo);
+      for (const col of db.collections) {
+        if (collectionIds.includes(col.id) && !col.photoIds.includes(id)) {
+          col.photoIds.push(id);
+          col.updatedAt = Date.now();
+        }
+      }
       saveDb(db);
       return json(res, 201, { photo: publicPhoto(photo) });
     }
@@ -213,6 +320,17 @@ const server = http.createServer(async (req, res) => {
         if (body.favorite != null) photo.favorite = !!body.favorite;
         if (body.width != null) photo.width = body.width;
         if (body.height != null) photo.height = body.height;
+        if (Array.isArray(body.collectionIds)) {
+          const nextIds = body.collectionIds.map(String);
+          photo.collectionIds = nextIds;
+          for (const col of db.collections) {
+            const should = nextIds.includes(col.id);
+            const has = col.photoIds.includes(photo.id);
+            if (should && !has) col.photoIds.push(photo.id);
+            if (!should && has) col.photoIds = col.photoIds.filter((x) => x !== photo.id);
+            if (should || has) col.updatedAt = Date.now();
+          }
+        }
         db.photos[idx] = photo;
         saveDb(db);
         return json(res, 200, { photo: publicPhoto(photo) });
@@ -223,6 +341,12 @@ const server = http.createServer(async (req, res) => {
         try {
           if (fs.existsSync(abs)) fs.unlinkSync(abs);
         } catch (_) {}
+        for (const col of db.collections) {
+          if (col.photoIds && col.photoIds.includes(photo.id)) {
+            col.photoIds = col.photoIds.filter((x) => x !== photo.id);
+            col.updatedAt = Date.now();
+          }
+        }
         db.photos.splice(idx, 1);
         saveDb(db);
         return json(res, 200, { ok: true });

@@ -3,8 +3,9 @@
  */
 (function (global) {
   const DB_NAME = "photomemory";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE = "photos";
+  const COL_STORE = "collections";
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -15,6 +16,9 @@
           const os = db.createObjectStore(STORE, { keyPath: "id" });
           os.createIndex("takenAt", "takenAt");
           os.createIndex("createdAt", "createdAt");
+        }
+        if (!db.objectStoreNames.contains(COL_STORE)) {
+          db.createObjectStore(COL_STORE, { keyPath: "id" });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -152,12 +156,28 @@
         size: blob.size,
         favorite: !!meta.favorite,
         exif: info.exif,
+        collectionIds: Array.isArray(meta.collectionIds) ? meta.collectionIds.map(String) : [],
         blob,
       };
       const db = this._db;
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).put(photo);
       await txDone(tx);
+      if (photo.collectionIds && photo.collectionIds.length) {
+        for (const cid of photo.collectionIds) {
+          try {
+            const ctx = this._db.transaction(COL_STORE, "readonly");
+            const col = await reqToPromise(ctx.objectStore(COL_STORE).get(cid));
+            if (col && !col.photoIds.includes(photo.id)) {
+              col.photoIds.push(photo.id);
+              col.updatedAt = Date.now();
+              const wtx = this._db.transaction(COL_STORE, "readwrite");
+              wtx.objectStore(COL_STORE).put(col);
+              await txDone(wtx);
+            }
+          } catch (_) {}
+        }
+      }
       const url = blobToUrl(photo.blob);
       cache.set(photo.id, { url, photo });
       return photo;
@@ -194,6 +214,10 @@
         exif: patch.exif !== undefined ? patch.exif : existing.exif,
         width: patch.width != null ? patch.width : existing.width,
         height: patch.height != null ? patch.height : existing.height,
+        collectionIds:
+          patch.collectionIds !== undefined
+            ? patch.collectionIds.map(String)
+            : existing.collectionIds || [],
       };
       const db = this._db;
       const tx = db.transaction(STORE, "readwrite");
@@ -276,6 +300,77 @@
         return (PhotoConfig.apiBase || "").replace(/\/+$/, "") + "/api/photos/" + photo.id + "/file";
       }
       return "";
+    },
+
+    /* ── 集合 ── */
+    async listCollections() {
+      if (this.mode === "cloud") return PhotoApi.listCollections();
+      const tx = this._db.transaction(COL_STORE, "readonly");
+      const all = await reqToPromise(tx.objectStore(COL_STORE).getAll());
+      return all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    },
+
+    async createCollection(name, note) {
+      const n = String(name || "").trim();
+      if (!n) throw new Error("请填写集名称");
+      if (this.mode === "cloud") return PhotoApi.createCollection(n, note);
+      const col = {
+        id: "c_" + uid(),
+        name: n.slice(0, 40),
+        note: String(note || "").trim(),
+        photoIds: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const tx = this._db.transaction(COL_STORE, "readwrite");
+      tx.objectStore(COL_STORE).put(col);
+      await txDone(tx);
+      return col;
+    },
+
+    async updateCollection(id, patch) {
+      if (this.mode === "cloud") return PhotoApi.updateCollection(id, patch);
+      const tx = this._db.transaction(COL_STORE, "readonly");
+      const col = await reqToPromise(tx.objectStore(COL_STORE).get(id));
+      if (!col) throw new Error("集不存在");
+      const next = { ...col, ...patch, updatedAt: Date.now() };
+      if (patch.name != null) next.name = String(patch.name).trim().slice(0, 40) || col.name;
+      const tx2 = this._db.transaction(COL_STORE, "readwrite");
+      tx2.objectStore(COL_STORE).put(next);
+      await txDone(tx2);
+      if (Array.isArray(patch.photoIds)) {
+        // 同步照片
+        const photos = await this.list();
+        for (const p of photos) {
+          const ids = Array.isArray(p.collectionIds) ? p.collectionIds.slice() : [];
+          const has = ids.includes(id);
+          const should = patch.photoIds.includes(p.id);
+          if (should && !has) ids.push(id);
+          if (!should && has) {
+            const i = ids.indexOf(id);
+            if (i >= 0) ids.splice(i, 1);
+          }
+          if (should !== has) {
+            await this.update(p.id, { collectionIds: ids });
+          }
+        }
+      }
+      return next;
+    },
+
+    async deleteCollection(id) {
+      if (this.mode === "cloud") return PhotoApi.deleteCollection(id);
+      const photos = await this.list();
+      for (const p of photos) {
+        if (Array.isArray(p.collectionIds) && p.collectionIds.includes(id)) {
+          const ids = p.collectionIds.filter((x) => x !== id);
+          await this.update(p.id, { collectionIds: ids });
+        }
+      }
+      const tx = this._db.transaction(COL_STORE, "readwrite");
+      tx.objectStore(COL_STORE).delete(id);
+      await txDone(tx);
+      return true;
     },
 
     async measure() {

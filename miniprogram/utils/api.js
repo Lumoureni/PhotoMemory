@@ -46,6 +46,7 @@ function createPhoto(base64, meta) {
       note: meta.note || "",
       takenAt: meta.takenAt || "",
       favorite: !!meta.favorite,
+      collectionIds: meta.collectionIds || [],
       mime: meta.mime || "image/jpeg",
       width: meta.width || 0,
       height: meta.height || 0,
@@ -62,6 +63,27 @@ function removePhoto(id) {
   return request("/api/photos/" + id, { method: "DELETE" });
 }
 
+function listCollections() {
+  return request("/api/collections").then((d) => d.collections || []);
+}
+
+function createCollection(name, note) {
+  return request("/api/collections", {
+    method: "POST",
+    data: { name, note: note || "" },
+  }).then((d) => d.collection);
+}
+
+function updateCollection(id, patch) {
+  return request("/api/collections/" + id, { method: "PATCH", data: patch }).then(
+    (d) => d.collection
+  );
+}
+
+function deleteCollection(id) {
+  return request("/api/collections/" + id, { method: "DELETE" });
+}
+
 function formatDate(iso) {
   if (!iso) return "";
   const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -76,5 +98,9 @@ module.exports = {
   createPhoto,
   updatePhoto,
   removePhoto,
+  listCollections,
+  createCollection,
+  updateCollection,
+  deleteCollection,
   formatDate,
 };

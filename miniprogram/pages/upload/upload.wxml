@@ -25,6 +25,10 @@
     <input class="input" value="{{place}}" bindinput="onPlace" placeholder="例如：杭州 · 西湖" />
     <view class="label">备注</view>
     <textarea class="textarea" value="{{note}}" bindinput="onNote" placeholder="当时在想什么…" maxlength="500" />
+    <view class="label">收纳到集</view>
+    <picker range="{{collectionNames}}" value="{{collectionIndex}}" bindchange="onCollection">
+      <view class="input">{{collectionNames[collectionIndex] || '不放入集'}}</view>
+    </picker>
     <button class="btn-brass save" bindtap="save" disabled="{{saving}}">{{saving ? '入藏中…' : '入藏影集'}}</button>
   </view>
 </view>

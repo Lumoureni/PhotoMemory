@@ -18,6 +18,7 @@
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
   --header-h: 72px;
   --pad: clamp(20px, 4vw, 56px);
+  --viewer-side-w: clamp(240px, 24vw, 300px);
 }
 
 *,
@@ -1282,17 +1283,21 @@ button {
 }
 
 .viewer-stage {
-  position: relative;
+  position: absolute;
   z-index: 1;
-  width: min(78vw, 1100px);
+  left: var(--viewer-side-w);
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  max-width: none;
   height: min(72vh, 820px);
   display: grid;
   place-items: center;
-  transition: transform 0.5s var(--ease);
 }
 
 .viewer.is-animating .viewer-stage {
-  transform: scale(0.985);
+  transform: translateY(-50%) scale(0.985);
 }
 
 .viewer-img {
@@ -1382,7 +1387,7 @@ button {
 }
 
 .viewer-prev {
-  left: 16px;
+  left: calc(var(--viewer-side-w) + 8px);
 }
 
 .viewer-next {
@@ -1390,79 +1395,29 @@ button {
 }
 
 .viewer-settings-btn {
-  position: absolute;
-  top: 20px;
-  right: 72px;
-  z-index: 5;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  color: var(--paper);
-  border: 1px solid var(--line-strong);
-  border-radius: 50%;
-  transition: border-color 0.3s, color 0.3s, background 0.3s;
-}
-
-.viewer-settings-btn svg {
-  width: 20px;
-  height: 20px;
-}
-
-.viewer-settings-btn:hover,
-.viewer-settings-btn.is-on {
-  border-color: var(--brass);
-  color: var(--brass);
-  background: rgba(196, 165, 116, 0.08);
+  display: none !important;
 }
 
 .viewer-float-meta {
-  position: absolute;
-  left: var(--pad);
-  bottom: 88px;
-  z-index: 3;
-  margin: 0;
-  max-width: min(40vw, 320px);
-  font-family: var(--font-display);
-  font-size: clamp(16px, 2vw, 22px);
-  letter-spacing: 0.04em;
-  color: rgba(242, 235, 224, 0.88);
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
-  pointer-events: none;
-  transition: opacity 0.3s;
-  line-height: 1.35;
+  display: none !important;
 }
 
-.viewer.settings-open .viewer-float-meta {
-  opacity: 0;
-}
-
+/* 左侧信息栏：常驻，不遮挡图片 */
 .viewer-side {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  z-index: 6;
-  width: min(320px, 88vw);
+  z-index: 4;
+  width: var(--viewer-side-w);
   padding: calc(var(--header-h) + 8px) 22px 28px;
-  background: linear-gradient(to right, rgba(14, 12, 10, 0.96) 0%, rgba(26, 22, 19, 0.97) 100%);
+  background: linear-gradient(to right, rgba(14, 12, 10, 0.97) 0%, rgba(26, 22, 19, 0.98) 100%);
   border-right: 1px solid var(--line-strong);
-  box-shadow: 16px 0 48px rgba(0, 0, 0, 0.45);
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
   gap: 8px;
   overflow: auto;
-  transform: translateX(-105%);
-  opacity: 0;
-  transition: transform 0.45s var(--ease), opacity 0.35s var(--ease);
-}
-
-.viewer-side[hidden] {
-  display: flex !important;
-  pointer-events: none;
-}
-
-.viewer.settings-open .viewer-side {
   transform: none;
   opacity: 1;
   pointer-events: auto;
@@ -1481,15 +1436,13 @@ button {
 }
 
 .viewer-side-close {
-  border: 1px solid var(--line);
-  width: 32px;
-  height: 32px;
+  display: none !important;
 }
 
 .viewer-title {
   margin: 0 0 8px;
   font-family: var(--font-display);
-  font-size: clamp(22px, 3vw, 30px);
+  font-size: clamp(20px, 2.4vw, 28px);
   font-weight: 400;
   letter-spacing: 0.04em;
 }
@@ -1552,12 +1505,12 @@ button {
 .viewer-thumbs {
   position: absolute;
   bottom: 20px;
-  left: 50%;
+  left: calc(var(--viewer-side-w) + (100% - var(--viewer-side-w)) / 2);
   transform: translateX(-50%);
   z-index: 4;
   display: flex;
   gap: 8px;
-  max-width: min(70vw, 640px);
+  max-width: min(56vw, 560px);
   overflow-x: auto;
   padding: 8px 4px;
   scrollbar-width: none;
@@ -1792,34 +1745,30 @@ button {
   }
 
   .viewer-side {
-    width: min(300px, 86vw);
-    padding-top: 72px;
+    width: min(220px, 42vw);
+    padding: 64px 12px 20px;
   }
 
-  .viewer-float-meta {
-    left: 16px;
-    bottom: 84px;
-    max-width: 50vw;
-  }
-
-  .viewer-settings-btn {
-    right: 68px;
-    top: 16px;
-    width: 40px;
-    height: 40px;
+  .viewer-title {
+    font-size: 18px;
   }
 
   .viewer-stage {
-    width: 92vw;
-    height: 58vh;
-    margin-bottom: 12vh;
+    left: min(220px, 42vw);
+    right: 8px;
+    height: min(58vh, 420px);
   }
 
   .viewer-prev {
-    left: 4px;
+    left: calc(min(220px, 42vw) + 4px);
   }
   .viewer-next {
     right: 4px;
+  }
+
+  .viewer-thumbs {
+    left: calc(min(220px, 42vw) + (100% - min(220px, 42vw)) / 2);
+    max-width: min(48vw, 320px);
   }
 }
 

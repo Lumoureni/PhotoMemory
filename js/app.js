@@ -668,7 +668,6 @@
     const viewer = $("#viewer");
     viewer.hidden = false;
     setEditMode(false);
-    setViewerSettingsOpen(false);
     document.body.classList.add("is-locked");
     requestAnimationFrame(() => viewer.classList.add("is-open"));
     renderViewer(true);
@@ -680,7 +679,6 @@
     viewer.classList.remove("is-open");
     state.viewer.open = false;
     setEditMode(false);
-    setViewerSettingsOpen(false);
     setTimeout(() => {
       viewer.hidden = true;
       document.body.classList.remove("is-locked");
@@ -706,37 +704,8 @@
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   }
 
-  function setViewerSettingsOpen(open) {
-    const viewer = $("#viewer");
-    const side = $("#viewerSide");
-    const btn = $("#viewerSettingsBtn");
-    if (!viewer || !side) return;
-    if (open) {
-      side.hidden = false;
-      viewer.classList.add("settings-open");
-      if (btn) {
-        btn.classList.add("is-on");
-        btn.setAttribute("aria-expanded", "true");
-      }
-    } else {
-      viewer.classList.remove("settings-open");
-      if (btn) {
-        btn.classList.remove("is-on");
-        btn.setAttribute("aria-expanded", "false");
-      }
-      setEditMode(false);
-      // 动画结束后再隐藏，避免闪烁
-      setTimeout(() => {
-        if (!viewer.classList.contains("settings-open")) side.hidden = true;
-      }, 400);
-    }
-  }
-
-  function updateViewerFloatMeta(photo) {
-    const el = $("#viewerFloatMeta");
-    if (!el || !photo) return;
-    const bits = [photo.title, formatDate(photo.takenAt)].filter(Boolean);
-    el.textContent = bits.join(" · ");
+  function updateViewerFloatMeta() {
+    /* 左侧常驻信息栏已展示标题，不再使用浮动文案 */
   }
 
   function renderViewer(instant) {
@@ -972,18 +941,6 @@
     $("#viewerPrev").addEventListener("click", () => switchPhoto(-1));
     $("#viewerNext").addEventListener("click", () => switchPhoto(1));
 
-    const settingsBtn = $("#viewerSettingsBtn");
-    if (settingsBtn) {
-      settingsBtn.addEventListener("click", () => {
-        const open = !$("#viewer").classList.contains("settings-open");
-        setViewerSettingsOpen(open);
-      });
-    }
-    const sideClose = $("#viewerSideClose");
-    if (sideClose) {
-      sideClose.addEventListener("click", () => setViewerSettingsOpen(false));
-    }
-
     $("#btnDelete").addEventListener("click", async () => {
       const list = currentList();
       const photo = list[state.viewer.index];
@@ -1055,14 +1012,9 @@
       }
       if (!state.viewer.open) return;
       const editing = $("#viewerEdit") && !$("#viewerEdit").hidden;
-      const settingsOpen = $("#viewer").classList.contains("settings-open");
       if (e.key === "Escape") {
         if (editing) {
           setEditMode(false);
-          return;
-        }
-        if (settingsOpen) {
-          setViewerSettingsOpen(false);
           return;
         }
         closeViewer();

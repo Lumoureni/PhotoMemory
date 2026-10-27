@@ -1259,6 +1259,29 @@ button {
   display: none !important;
 }
 
+/* 轮播飞入查看器的共享元素 */
+.viewer-flight {
+  position: fixed;
+  z-index: 850;
+  background-size: cover;
+  background-position: center;
+  border-radius: 2px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  will-change: transform, width, height, opacity;
+}
+
+.viewer-img.is-flight-hidden {
+  opacity: 0 !important;
+}
+
+.view-home.is-transitioning {
+  opacity: 0.35;
+  filter: blur(2px);
+  transition: opacity 0.45s var(--ease), filter 0.45s var(--ease);
+  pointer-events: none;
+}
+
 .viewer-backdrop {
   position: absolute;
   inset: 0;

@@ -283,11 +283,12 @@
     const frame = $(".carousel-frame");
     const pauseBtn = $("#carouselPause");
     if (frame) {
-      frame.addEventListener("click", () => {
+      frame.addEventListener("click", async () => {
         const photo = homeCarousel.photos[homeCarousel.index];
         if (!photo) return;
         const idx = state.photos.findIndex((p) => p.id === photo.id);
-        openViewer(idx >= 0 ? idx : homeCarousel.index);
+        const slideImg = $(".carousel-slide.is-active img", frame) || $("#previewImg");
+        await openViewerWithTransition(idx >= 0 ? idx : 0, slideImg);
       });
     }
     if (pauseBtn) {
@@ -672,6 +673,107 @@
     requestAnimationFrame(() => viewer.classList.add("is-open"));
     renderViewer(true);
     renderThumbs();
+  }
+
+  /** 首页轮播 → 查看器：共享元素飞入 + 柔和淡入 */
+  function openViewerWithTransition(index, fromImgEl) {
+    const list = currentList();
+    if (!list.length) return Promise.resolve();
+
+    const reduce =
+      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!fromImgEl || !fromImgEl.getBoundingClientRect || reduce) {
+      openViewer(index);
+      return Promise.resolve();
+    }
+
+    const fromRect = fromImgEl.getBoundingClientRect();
+    if (fromRect.width < 4 || fromRect.height < 4) {
+      openViewer(index);
+      return Promise.resolve();
+    }
+
+    // 轮播暂停
+    clearInterval(homeCarousel.timer);
+
+    // 舞台图片先隐藏，避免与飞行克隆重叠
+    const viewer = $("#viewer");
+    const imgA = $("#viewerImgA");
+    const imgB = $("#viewerImgB");
+    [imgA, imgB].forEach((el) => el && el.classList.add("is-flight-hidden"));
+
+    openViewer(index);
+
+    // 等待布局与首帧
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const target = activeImgEl();
+          const stage = $("#viewerStage");
+          let toRect = target.getBoundingClientRect();
+          if (toRect.width < 8 || toRect.height < 8) {
+            toRect = stage ? stage.getBoundingClientRect() : toRect;
+          }
+          // 目标区略收缩，更接近「落入」舞台
+          const padX = toRect.width * 0.04;
+          const padY = toRect.height * 0.04;
+          toRect = {
+            left: toRect.left + padX,
+            top: toRect.top + padY,
+            width: Math.max(40, toRect.width - padX * 2),
+            height: Math.max(40, toRect.height - padY * 2),
+          };
+          const src = PhotoStore.urlFor(list[Math.max(0, Math.min(index, list.length - 1))]) || fromImgEl.src;
+
+          const flight = document.createElement("div");
+          flight.className = "viewer-flight";
+          flight.style.left = fromRect.left + "px";
+          flight.style.top = fromRect.top + "px";
+          flight.style.width = fromRect.width + "px";
+          flight.style.height = fromRect.height + "px";
+          flight.style.backgroundImage = `url("${src}")`;
+          document.body.appendChild(flight);
+
+          // 首页轻淡出
+          const home = $("#viewHome");
+          if (home) home.classList.add("is-transitioning");
+
+          // 小粒子（若首页画布仍在）
+          const hero = $("#heroParticles");
+          if (hero && viewerFx && hero.offsetParent !== null) {
+            const fr = fromRect;
+            viewerFx.burst(hero, fr.left + fr.width / 2 - hero.getBoundingClientRect().left, fr.top + fr.height / 2 - hero.getBoundingClientRect().top);
+          }
+
+          const DUR = 720;
+          const start = performance.now();
+          const ease = (t) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+
+          const step = (now) => {
+            const t = Math.min(1, (now - start) / DUR);
+            const e = ease(t);
+            const x = fromRect.left + (toRect.left - fromRect.left) * e;
+            const y = fromRect.top + (toRect.top - fromRect.top) * e;
+            const w = fromRect.width + (toRect.width - fromRect.width) * e;
+            const h = fromRect.height + (toRect.height - fromRect.height) * e;
+            flight.style.transform = `translate(${x - fromRect.left}px, ${y - fromRect.top}px)`;
+            flight.style.width = w + "px";
+            flight.style.height = h + "px";
+            flight.style.opacity = t < 0.75 ? String(0.75 + 0.25 * t) : String(1 - (t - 0.75) / 0.25);
+
+            if (t < 1) {
+              requestAnimationFrame(step);
+            } else {
+              flight.remove();
+              [imgA, imgB].forEach((el) => el && el.classList.remove("is-flight-hidden"));
+              if (home) home.classList.remove("is-transitioning");
+              resolve();
+            }
+          };
+          requestAnimationFrame(step);
+        });
+      });
+    });
   }
 
   function closeViewer() {

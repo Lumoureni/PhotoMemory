@@ -223,6 +223,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
 
+    <button type="button" class="viewer-settings-btn" id="viewerSettingsBtn" aria-label="设置与信息" aria-expanded="false" aria-controls="viewerSide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/>
+      </svg>
+    </button>
+
     <button type="button" class="viewer-nav viewer-prev" id="viewerPrev" aria-label="上一张">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
@@ -230,8 +237,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5l7 7-7 7"/></svg>
     </button>
 
-    <aside class="viewer-side" id="viewerSide">
-      <p class="eyebrow" id="viewerIndex">01 / 01</p>
+    <p class="viewer-float-meta" id="viewerFloatMeta" aria-hidden="true"></p>
+
+    <aside class="viewer-side" id="viewerSide" hidden>
+      <div class="viewer-side-head">
+        <p class="eyebrow" id="viewerIndex">01 / 01</p>
+        <button type="button" class="icon-btn viewer-side-close" id="viewerSideClose" aria-label="收起设置">×</button>
+      </div>
 
       <div class="viewer-display" id="viewerDisplay">
         <h2 class="viewer-title" id="viewerTitle">未命名</h2>

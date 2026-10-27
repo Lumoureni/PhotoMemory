@@ -1389,26 +1389,107 @@ button {
   right: 16px;
 }
 
-.viewer-side {
+.viewer-settings-btn {
+  position: absolute;
+  top: 20px;
+  right: 72px;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  transition: border-color 0.3s, color 0.3s, background 0.3s;
+}
+
+.viewer-settings-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.viewer-settings-btn:hover,
+.viewer-settings-btn.is-on {
+  border-color: var(--brass);
+  color: var(--brass);
+  background: rgba(196, 165, 116, 0.08);
+}
+
+.viewer-float-meta {
   position: absolute;
   left: var(--pad);
   bottom: 88px;
-  z-index: 4;
-  max-width: 280px;
-  opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 0.5s var(--ease) 0.15s, transform 0.5s var(--ease) 0.15s;
+  z-index: 3;
+  margin: 0;
+  max-width: min(40vw, 320px);
+  font-family: var(--font-display);
+  font-size: clamp(16px, 2vw, 22px);
+  letter-spacing: 0.04em;
+  color: rgba(242, 235, 224, 0.88);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  transition: opacity 0.3s;
+  line-height: 1.35;
 }
 
-.viewer.is-open .viewer-side {
-  opacity: 1;
+.viewer.settings-open .viewer-float-meta {
+  opacity: 0;
+}
+
+.viewer-side {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  width: min(320px, 88vw);
+  padding: calc(var(--header-h) + 8px) 22px 28px;
+  background: linear-gradient(to right, rgba(14, 12, 10, 0.96) 0%, rgba(26, 22, 19, 0.97) 100%);
+  border-right: 1px solid var(--line-strong);
+  box-shadow: 16px 0 48px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  transform: translateX(-105%);
+  opacity: 0;
+  transition: transform 0.45s var(--ease), opacity 0.35s var(--ease);
+}
+
+.viewer-side[hidden] {
+  display: flex !important;
+  pointer-events: none;
+}
+
+.viewer.settings-open .viewer-side {
   transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.viewer-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.viewer-side-head .eyebrow {
+  margin: 0;
+}
+
+.viewer-side-close {
+  border: 1px solid var(--line);
+  width: 32px;
+  height: 32px;
 }
 
 .viewer-title {
   margin: 0 0 8px;
   font-family: var(--font-display);
-  font-size: clamp(22px, 3vw, 32px);
+  font-size: clamp(22px, 3vw, 30px);
   font-weight: 400;
   letter-spacing: 0.04em;
 }
@@ -1435,6 +1516,14 @@ button {
   gap: 10px;
   max-width: 280px;
   margin-top: 4px;
+}
+
+.viewer-edit[hidden],
+.viewer-actions[hidden],
+.viewer-display[hidden],
+#viewerActionsEdit[hidden],
+#viewerActionsView[hidden] {
+  display: none !important;
 }
 
 .viewer-edit .field input,
@@ -1703,12 +1792,21 @@ button {
   }
 
   .viewer-side {
+    width: min(300px, 86vw);
+    padding-top: 72px;
+  }
+
+  .viewer-float-meta {
     left: 16px;
-    right: 16px;
-    bottom: 100px;
-    max-width: none;
-    background: linear-gradient(to top, rgba(14, 12, 10, 0.92), transparent);
-    padding-top: 24px;
+    bottom: 84px;
+    max-width: 50vw;
+  }
+
+  .viewer-settings-btn {
+    right: 68px;
+    top: 16px;
+    width: 40px;
+    height: 40px;
   }
 
   .viewer-stage {

@@ -668,6 +668,7 @@
     const viewer = $("#viewer");
     viewer.hidden = false;
     setEditMode(false);
+    setViewerSettingsOpen(false);
     document.body.classList.add("is-locked");
     requestAnimationFrame(() => viewer.classList.add("is-open"));
     renderViewer(true);
@@ -679,6 +680,7 @@
     viewer.classList.remove("is-open");
     state.viewer.open = false;
     setEditMode(false);
+    setViewerSettingsOpen(false);
     setTimeout(() => {
       viewer.hidden = true;
       document.body.classList.remove("is-locked");
@@ -704,6 +706,39 @@
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   }
 
+  function setViewerSettingsOpen(open) {
+    const viewer = $("#viewer");
+    const side = $("#viewerSide");
+    const btn = $("#viewerSettingsBtn");
+    if (!viewer || !side) return;
+    if (open) {
+      side.hidden = false;
+      viewer.classList.add("settings-open");
+      if (btn) {
+        btn.classList.add("is-on");
+        btn.setAttribute("aria-expanded", "true");
+      }
+    } else {
+      viewer.classList.remove("settings-open");
+      if (btn) {
+        btn.classList.remove("is-on");
+        btn.setAttribute("aria-expanded", "false");
+      }
+      setEditMode(false);
+      // 动画结束后再隐藏，避免闪烁
+      setTimeout(() => {
+        if (!viewer.classList.contains("settings-open")) side.hidden = true;
+      }, 400);
+    }
+  }
+
+  function updateViewerFloatMeta(photo) {
+    const el = $("#viewerFloatMeta");
+    if (!el || !photo) return;
+    const bits = [photo.title, formatDate(photo.takenAt)].filter(Boolean);
+    el.textContent = bits.join(" · ");
+  }
+
   function renderViewer(instant) {
     const list = currentList();
     if (!list.length) {
@@ -725,6 +760,7 @@
     $("#viewerMeta").textContent = bits.join(" · ") || (photo.width ? `${photo.width}×${photo.height}` : "");
     $("#viewerNote").textContent = photo.note || "";
     updateFavButton();
+    updateViewerFloatMeta(photo);
 
     if (instant) {
       // 预加载相邻
@@ -785,6 +821,7 @@
       $("#viewerMeta").textContent = bits.join(" · ");
       $("#viewerNote").textContent = nextPhoto.note || "";
       updateFavButton();
+      updateViewerFloatMeta(nextPhoto);
       updateThumbActive();
       // 预取下一张
       const after = list[(state.viewer.index + 1) % list.length];
@@ -874,6 +911,7 @@
     const bits = [formatDate(photo.takenAt), photo.place].filter(Boolean);
     $("#viewerMeta").textContent = bits.join(" · ");
     $("#viewerNote").textContent = photo.note || "";
+    updateViewerFloatMeta(photo);
   }
 
   function updateThumbActive() {
@@ -933,6 +971,18 @@
     $("#viewerBackdrop").addEventListener("click", closeViewer);
     $("#viewerPrev").addEventListener("click", () => switchPhoto(-1));
     $("#viewerNext").addEventListener("click", () => switchPhoto(1));
+
+    const settingsBtn = $("#viewerSettingsBtn");
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", () => {
+        const open = !$("#viewer").classList.contains("settings-open");
+        setViewerSettingsOpen(open);
+      });
+    }
+    const sideClose = $("#viewerSideClose");
+    if (sideClose) {
+      sideClose.addEventListener("click", () => setViewerSettingsOpen(false));
+    }
 
     $("#btnDelete").addEventListener("click", async () => {
       const list = currentList();
@@ -1005,9 +1055,14 @@
       }
       if (!state.viewer.open) return;
       const editing = $("#viewerEdit") && !$("#viewerEdit").hidden;
+      const settingsOpen = $("#viewer").classList.contains("settings-open");
       if (e.key === "Escape") {
         if (editing) {
           setEditMode(false);
+          return;
+        }
+        if (settingsOpen) {
+          setViewerSettingsOpen(false);
           return;
         }
         closeViewer();

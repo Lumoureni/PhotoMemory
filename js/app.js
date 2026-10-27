@@ -499,6 +499,7 @@
       btn.querySelector(".n").textContent = count != null ? String(count) : "";
       btn.addEventListener("click", () => {
         state.albumId = id;
+        renderAlbumBar(); // 刷新选中高亮
         renderGallery();
       });
       wrap.appendChild(btn);

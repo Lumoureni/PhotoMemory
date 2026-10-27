@@ -1353,8 +1353,8 @@ button {
 }
 
 .viewer.is-animating .viewer-img.is-current {
-  filter: blur(10px) brightness(1.25) saturate(0.85);
-  opacity: 0.22;
+  filter: blur(12px) brightness(1.28) saturate(0.8);
+  opacity: 0.12;
 }
 
 .viewer-close {

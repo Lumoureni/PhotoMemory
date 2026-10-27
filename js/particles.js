@@ -152,11 +152,9 @@
 
     /**
      * 过渡：fromImg -> toImg
-     * 1) 从 fromImg 像素采样粒子向外飘散
-     * 2) 同时从 toImg 采样粒子从外汇聚
-     * callback 在中点调用以切换 DOM 图片
+     * 旧照片粒子「随风消散」，新照片从风来的方向轻柔汇入
      */
-    async transition(fromImg, toImg, onMid, duration = 900) {
+    async transition(fromImg, toImg, onMid, duration = 1050) {
       if (this.busy) return;
       this.busy = true;
 
@@ -176,15 +174,20 @@
       const stage = this.canvas.parentElement.querySelector(".viewer-stage") || this.canvas;
       const stageRect = stage.getBoundingClientRect();
       const canvasRect = this.canvas.getBoundingClientRect();
-      // 图片在画布中的绘制区域
       const offsetX = stageRect.left - canvasRect.left;
       const offsetY = stageRect.top - canvasRect.top;
 
       const sampleGrid = Math.max(4, Math.min(8, Math.floor(Math.min(w, h) / 110)));
 
-      const outParticles = this._sampleImage(fromImg, stageRect, offsetX, offsetY, sampleGrid, "out");
+      // 风向：偏右上，带一点随机摆动，像暖风掠过暗房
+      const windAng = -0.72 + rand(-0.12, 0.12); // 弧度
+      const wind = { x: Math.cos(windAng), y: Math.sin(windAng) };
+      // 垂直于风的扰动
+      const side = { x: -wind.y, y: wind.x };
+
+      const outParticles = this._sampleImage(fromImg, stageRect, offsetX, offsetY, sampleGrid, "out", wind, side);
       const inParticles = toImg && toImg.naturalWidth
-        ? this._sampleImage(toImg, stageRect, offsetX, offsetY, sampleGrid, "in")
+        ? this._sampleImage(toImg, stageRect, offsetX, offsetY, sampleGrid, "in", wind, side)
         : [];
 
       this.particles = outParticles.concat(inParticles);
@@ -196,42 +199,73 @@
       await new Promise((resolve) => {
         const step = (now) => {
           const t = Math.min(1, (now - start) / duration);
-          // ease
           const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           ctx.clearRect(0, 0, w, h);
 
-          if (!midFired && t > 0.38) {
+          if (!midFired && t > 0.36) {
             midFired = true;
             this.phase = "implode";
             if (onMid) onMid();
           }
 
           for (const p of this.particles) {
-            let x, y, alpha, size;
+            let x, y, alpha, size, stretch;
+
             if (p.kind === "out") {
-              // 飘散：向外加速 + 轻微重力/旋涡
-              const te = Math.pow(t, 0.85);
-              x = p.x + p.vx * te * p.dist + Math.sin(p.seed + t * 4) * p.drift;
-              y = p.y + p.vy * te * p.dist + Math.cos(p.seed + t * 3.5) * p.drift * 0.6 + te * te * 30 * p.g;
-              alpha = (1 - Math.pow(t, 0.7)) * p.alpha;
-              size = p.size * (1 - t * 0.35);
+              // 风蚀溶解：按“迎风侧先散”分批起飞
+              const local = Math.max(0, Math.min(1, (t - p.delay) / (1 - p.delay)));
+              if (local <= 0) {
+                // 未起飞时保持原位轻微颤动
+                const tremble = Math.sin(now * 0.008 + p.seed) * 0.4;
+                x = p.x + tremble;
+                y = p.y + tremble * 0.6;
+                alpha = p.alpha * (0.85 + 0.15 * local);
+                size = p.size;
+                stretch = 1;
+              } else {
+                // 缓出加速，像被风卷走
+                const g = 1 - Math.pow(1 - local, 2.2);
+                const lift = g * g;
+                const along = p.windSpeed * g * p.dist;
+                const curl = Math.sin(p.seed + local * Math.PI * 2.2) * p.curl * g;
+                const sway = Math.cos(p.seed * 1.7 + local * 5.5) * p.drift * g * 0.45;
+
+                x = p.x + wind.x * along + side.x * curl + side.x * sway + wind.x * lift * 40;
+                y = p.y + wind.y * along + side.y * curl + side.y * sway + wind.y * lift * 40 + lift * 18 * p.g;
+
+                // 消散：随飞行渐隐，尾部更久一点
+                alpha = p.alpha * Math.pow(1 - local, 1.35) * (0.55 + 0.45 * Math.sin(p.seed + local * 6));
+                if (alpha < 0) alpha = 0;
+                size = p.size * (1 - local * 0.45);
+                stretch = 1 + local * 2.4; // 沿风拉长
+              }
             } else {
-              // 汇聚：从外侧飞入目标点
-              const te = 1 - Math.pow(1 - t, 1.6);
-              x = p.sx + (p.x - p.sx) * te;
-              y = p.sy + (p.y - p.sy) * te;
-              alpha = Math.min(1, Math.pow(Math.max(0, (t - 0.15) / 0.85), 0.6)) * p.alpha;
-              size = p.size * (0.55 + 0.45 * te);
+              // 汇入：从风的上游飘回，略带弧线
+              const te = 1 - Math.pow(1 - t, 1.55);
+              const curl = Math.sin(p.seed + t * 3) * p.curl * 0.35 * (1 - te);
+              x = p.sx + (p.x - p.sx) * te + side.x * curl;
+              y = p.sy + (p.y - p.sy) * te + side.y * curl;
+              alpha = Math.min(1, Math.pow(Math.max(0, (t - 0.12) / 0.88), 0.55)) * p.alpha * 0.95;
+              size = p.size * (0.5 + 0.5 * te);
+              stretch = 1.6 - te * 0.6;
             }
 
-            if (alpha <= 0.01) continue;
-            // 轻微光晕感：先画较大半透明方块，再画实心点
-            ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha * 0.22})`;
+            if (alpha <= 0.012) continue;
+
+            // 沿风向的轻微拖尾
+            if (p.kind === "out" && stretch > 1.15) {
+              const tailX = x - wind.x * (stretch - 1) * size * 2.2;
+              const tailY = y - wind.y * (stretch - 1) * size * 2.2;
+              ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha * 0.28})`;
+              ctx.fillRect(tailX - size * 0.5, tailY - size * 0.5, size * 1.2, size * 1.2);
+            }
+
+            ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha * 0.2})`;
             ctx.fillRect(x - size, y - size, size * 3, size * 3);
             ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha})`;
-            ctx.fillRect(x, y, size, size);
+            ctx.fillRect(x, y, Math.max(1, size * Math.min(stretch, 2.8)), Math.max(1, size * (2 - Math.min(stretch, 2)) * 0.85 + size * 0.15));
           }
 
           if (t < 1) {
@@ -249,7 +283,7 @@
       });
     }
 
-    _sampleImage(img, stageRect, offsetX, offsetY, grid, kind) {
+    _sampleImage(img, stageRect, offsetX, offsetY, grid, kind, wind, side) {
       const w = stageRect.width;
       const h = stageRect.height;
       const maxW = Math.min(w, 720);
@@ -260,7 +294,6 @@
       const dx = offsetX + (w - dw) / 2;
       const dy = offsetY + (h - dh) / 2;
 
-      // 离屏采样
       const sw = Math.max(1, Math.floor(dw / grid));
       const sh = Math.max(1, Math.floor(dh / grid));
       const off = document.createElement("canvas");
@@ -282,51 +315,56 @@
       const list = [];
       const cx = dx + dw / 2;
       const cy = dy + dh / 2;
-      // 限制粒子数量
-      const maxP = 1600;
+      const maxP = 1700;
       const step = Math.max(1, Math.ceil((sw * sh) / maxP));
+      const wdir = wind || { x: 0.75, y: -0.66 };
+      const sdir = side || { x: 0.66, y: 0.75 };
 
       for (let y = 0; y < sh; y++) {
         for (let x = 0; x < sw; x++) {
           const idx = (y * sw + x) * 4;
           const a = data[idx + 3];
           if (a < 20) continue;
-          // 跳过采样以控数量
           if ((y * sw + x) % step !== 0) continue;
 
           const r = data[idx];
           const g = data[idx + 1];
           const b = data[idx + 2];
-          // 亮度
           const lum = (r * 0.3 + g * 0.5 + b * 0.2) / 255;
 
           const px = dx + (x / sw) * dw + (Math.random() - 0.5) * (dw / sw);
           const py = dy + (y / sh) * dh + (Math.random() - 0.5) * (dh / sh);
 
-          // 暖色映射：保留原色但压向黄铜调
-          const mix = 0.35;
-          const cr = (r * (1 - mix) + BRASS[0] * mix * (0.4 + lum * 0.6)) | 0;
-          const cg = (g * (1 - mix) + BRASS[1] * mix * (0.4 + lum * 0.6)) | 0;
-          const cb = (b * (1 - mix) + BRASS[2] * mix * (0.4 + lum * 0.6)) | 0;
+          const mix = 0.38;
+          const cr = (r * (1 - mix) + BRASS[0] * mix * (0.35 + lum * 0.65)) | 0;
+          const cg = (g * (1 - mix) + BRASS[1] * mix * (0.35 + lum * 0.65)) | 0;
+          const cb = (b * (1 - mix) + BRASS[2] * mix * (0.35 + lum * 0.65)) | 0;
 
-          const ang = Math.atan2(py - cy, px - cx) + rand(-0.5, 0.5);
+          // 迎风侧（x 小、偏左）更早起飞
+          const nx = (px - dx) / Math.max(1, dw);
+          const ny = (py - dy) / Math.max(1, dh);
+          // 投影到风的反方向：越靠“上风” delay 越小
+          const windProj = -(nx - 0.5) * wdir.x - (ny - 0.5) * wdir.y;
+          const delay = Math.max(0, Math.min(0.42, 0.28 - windProj * 0.35 + rand(-0.08, 0.12)));
+
           const dist = Math.hypot(px - cx, py - cy);
-          const outDist = 80 + dist * 0.85 + rand(0, 120);
+          const ang = Math.atan2(py - cy, px - cx);
 
           list.push({
             kind,
             x: px,
             y: py,
-            sx: cx + Math.cos(ang) * (dist + rand(120, 280)),
-            sy: cy + Math.sin(ang) * (dist + rand(120, 280)),
-            vx: Math.cos(ang),
-            vy: Math.sin(ang),
-            dist: outDist,
-            drift: rand(-18, 18),
-            g: rand(-0.5, 1.2),
+            sx: cx + wdir.x * (180 + rand(0, 160)) + Math.cos(ang) * rand(40, 100),
+            sy: cy + wdir.y * (180 + rand(0, 160)) + Math.sin(ang) * rand(40, 100),
+            dist: 220 + dist * 0.9 + rand(40, 200),
+            windSpeed: rand(0.75, 1.35),
+            curl: rand(24, 70),
+            drift: rand(-16, 16),
+            g: rand(-0.3, 1.1),
             seed: rand(0, Math.PI * 2),
-            size: rand(1.6, 3.6) * (0.75 + lum * 0.7),
-            alpha: rand(0.7, 1) * (kind === "out" ? 1 : 0.95),
+            delay,
+            size: rand(1.5, 3.4) * (0.7 + lum * 0.75),
+            alpha: rand(0.72, 1),
             color: [cr, cg, cb],
           });
         }

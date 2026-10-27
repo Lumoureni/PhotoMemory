@@ -148,13 +148,50 @@
       this.raf = 0;
       this.busy = false;
       this.phase = "idle"; // explode | implode
+      this._lastWind = null;
+    }
+
+    /** 每次切换随机一套风场/节奏，避免观感固化 */
+    _nextStyle() {
+      // 在若干「暗房气流」方向里随机，再抖一点角度
+      const presets = [
+        { ang: -0.65, label: "右上" },
+        { ang: -2.35, label: "左上" },
+        { ang: 0.95, label: "右下" },
+        { ang: 2.2, label: "左下" },
+        { ang: -1.5, label: "上升" },
+        { ang: 0.2, label: "横掠" },
+        { ang: -0.35, label: "斜掠" },
+      ];
+      let pick = presets[(Math.random() * presets.length) | 0];
+      // 避免连续两次同向
+      if (this._lastWind != null && Math.abs(pick.ang - this._lastWind) < 0.8) {
+        pick = presets[(presets.indexOf(pick) + 1 + ((Math.random() * 3) | 0)) % presets.length];
+      }
+      const ang = pick.ang + rand(-0.28, 0.28);
+      this._lastWind = ang;
+      const styles = ["wind", "swirl", "scatter"];
+      const mode = styles[(Math.random() * styles.length) | 0];
+      return {
+        ang,
+        mode,
+        duration: 880 + Math.random() * 380,
+        midAt: 0.3 + Math.random() * 0.18,
+        easeOut: 1.8 + Math.random() * 1.2,
+        curlScale: 0.7 + Math.random() * 1.1,
+        gravity: rand(-0.6, 1.4),
+        distScale: 0.75 + Math.random() * 0.7,
+        stretch: 1.6 + Math.random() * 1.8,
+        delayMode: Math.random() < 0.55 ? "wind" : "shuffle",
+        tremble: rand(0.2, 0.85),
+      };
     }
 
     /**
      * 过渡：fromImg -> toImg
-     * 旧照片粒子「随风消散」，新照片从风来的方向轻柔汇入
+     * 旧照片粒子随机风向消散，新照片从上游轻柔汇入
      */
-    async transition(fromImg, toImg, onMid, duration = 1050) {
+    async transition(fromImg, toImg, onMid, duration) {
       // 若上一段仍在播，等它结束再开始，避免静默 return 导致调用方卡住
       if (this.busy) {
         await new Promise((resolve) => {
@@ -192,33 +229,44 @@
       const offsetY = stageRect.top - canvasRect.top;
 
       const sampleGrid = Math.max(4, Math.min(8, Math.floor(Math.min(w, h) / 110)));
+      const style = this._nextStyle();
+      const dur = duration || style.duration;
 
-      // 风向：偏右上，带一点随机摆动，像暖风掠过暗房
-      const windAng = -0.72 + rand(-0.12, 0.12); // 弧度
+      const windAng = style.ang;
       const wind = { x: Math.cos(windAng), y: Math.sin(windAng) };
-      // 垂直于风的扰动
       const side = { x: -wind.y, y: wind.x };
 
-      const outParticles = this._sampleImage(fromImg, stageRect, offsetX, offsetY, sampleGrid, "out", wind, side);
-      const inParticles = toImg && toImg.naturalWidth
-        ? this._sampleImage(toImg, stageRect, offsetX, offsetY, sampleGrid, "in", wind, side)
-        : [];
+      const outParticles = this._sampleImage(
+        fromImg,
+        stageRect,
+        offsetX,
+        offsetY,
+        sampleGrid,
+        "out",
+        wind,
+        side,
+        style
+      );
+      const inParticles =
+        toImg && toImg.naturalWidth
+          ? this._sampleImage(toImg, stageRect, offsetX, offsetY, sampleGrid, "in", wind, side, style)
+          : [];
 
       this.particles = outParticles.concat(inParticles);
       this.phase = "explode";
 
       const start = performance.now();
       let midFired = false;
+      const midAt = style.midAt;
 
       await new Promise((resolve) => {
         const step = (now) => {
-          const t = Math.min(1, (now - start) / duration);
-          const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          const t = Math.min(1, (now - start) / dur);
 
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           ctx.clearRect(0, 0, w, h);
 
-          if (!midFired && t > 0.36) {
+          if (!midFired && t > midAt) {
             midFired = true;
             this.phase = "implode";
             if (onMid) onMid();
@@ -228,58 +276,68 @@
             let x, y, alpha, size, stretch;
 
             if (p.kind === "out") {
-              // 风蚀溶解：按“迎风侧先散”分批起飞
-              const local = Math.max(0, Math.min(1, (t - p.delay) / (1 - p.delay)));
+              const local = Math.max(0, Math.min(1, (t - p.delay) / Math.max(0.01, 1 - p.delay)));
               if (local <= 0) {
-                // 未起飞时保持原位轻微颤动
-                const tremble = Math.sin(now * 0.008 + p.seed) * 0.4;
+                const tremble = Math.sin(now * 0.008 * (1 + style.tremble) + p.seed) * style.tremble;
                 x = p.x + tremble;
                 y = p.y + tremble * 0.6;
-                alpha = p.alpha * (0.85 + 0.15 * local);
+                alpha = p.alpha * 0.9;
                 size = p.size;
                 stretch = 1;
               } else {
-                // 缓出加速，像被风卷走
-                const g = 1 - Math.pow(1 - local, 2.2);
+                const g = 1 - Math.pow(1 - local, style.easeOut);
                 const lift = g * g;
                 const along = p.windSpeed * g * p.dist;
-                const curl = Math.sin(p.seed + local * Math.PI * 2.2) * p.curl * g;
-                const sway = Math.cos(p.seed * 1.7 + local * 5.5) * p.drift * g * 0.45;
+                const swirl =
+                  style.mode === "swirl"
+                    ? Math.sin(p.seed + local * Math.PI * 3.2) * p.curl * 1.25 * g
+                    : Math.sin(p.seed + local * Math.PI * 2.2) * p.curl * g * style.curlScale;
+                const scatter =
+                  style.mode === "scatter"
+                    ? (p.seed % 2 === 0 ? 1 : -1) * p.drift * g * (0.8 + Math.sin(local * 7 + p.seed))
+                    : Math.cos(p.seed * 1.7 + local * 5.5) * p.drift * g * 0.45;
 
-                x = p.x + wind.x * along + side.x * curl + side.x * sway + wind.x * lift * 40;
-                y = p.y + wind.y * along + side.y * curl + side.y * sway + wind.y * lift * 40 + lift * 18 * p.g;
+                x = p.x + wind.x * along + side.x * swirl + side.x * scatter + wind.x * lift * 40;
+                y =
+                  p.y +
+                  wind.y * along +
+                  side.y * swirl +
+                  side.y * scatter +
+                  wind.y * lift * 40 +
+                  lift * 18 * p.g * style.gravity;
 
-                // 消散：随飞行渐隐，尾部更久一点
-                alpha = p.alpha * Math.pow(1 - local, 1.35) * (0.55 + 0.45 * Math.sin(p.seed + local * 6));
+                alpha = p.alpha * Math.pow(1 - local, 1.25 + style.easeOut * 0.08);
+                alpha *= 0.55 + 0.45 * Math.sin(p.seed + local * (4 + style.curlScale * 3));
                 if (alpha < 0) alpha = 0;
-                size = p.size * (1 - local * 0.45);
-                stretch = 1 + local * 2.4; // 沿风拉长
+                size = p.size * (1 - local * 0.4);
+                stretch = 1 + local * style.stretch;
               }
             } else {
-              // 汇入：从风的上游飘回，略带弧线
-              const te = 1 - Math.pow(1 - t, 1.55);
-              const curl = Math.sin(p.seed + t * 3) * p.curl * 0.35 * (1 - te);
+              const easeIn = 1.35 + (style.easeOut - 1.8) * 0.3;
+              const te = 1 - Math.pow(1 - t, easeIn);
+              const curl = Math.sin(p.seed + t * (2.4 + style.curlScale)) * p.curl * 0.3 * (1 - te) * style.curlScale;
               x = p.sx + (p.x - p.sx) * te + side.x * curl;
               y = p.sy + (p.y - p.sy) * te + side.y * curl;
-              alpha = Math.min(1, Math.pow(Math.max(0, (t - 0.12) / 0.88), 0.55)) * p.alpha * 0.95;
+              alpha = Math.min(1, Math.pow(Math.max(0, (t - 0.1) / 0.9), 0.5)) * p.alpha * 0.95;
               size = p.size * (0.5 + 0.5 * te);
-              stretch = 1.6 - te * 0.6;
+              stretch = 1.5 - te * 0.5;
             }
 
             if (alpha <= 0.012) continue;
 
-            // 沿风向的轻微拖尾
             if (p.kind === "out" && stretch > 1.15) {
-              const tailX = x - wind.x * (stretch - 1) * size * 2.2;
-              const tailY = y - wind.y * (stretch - 1) * size * 2.2;
-              ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha * 0.28})`;
+              const tailX = x - wind.x * (stretch - 1) * size * 2.0;
+              const tailY = y - wind.y * (stretch - 1) * size * 2.0;
+              ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha * 0.26})`;
               ctx.fillRect(tailX - size * 0.5, tailY - size * 0.5, size * 1.2, size * 1.2);
             }
 
-            ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha * 0.2})`;
+            ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha * 0.18})`;
             ctx.fillRect(x - size, y - size, size * 3, size * 3);
             ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha})`;
-            ctx.fillRect(x, y, Math.max(1, size * Math.min(stretch, 2.8)), Math.max(1, size * (2 - Math.min(stretch, 2)) * 0.85 + size * 0.15));
+            const sx = Math.max(1, size * Math.min(stretch, 2.8));
+            const sy = Math.max(1, size * (2 - Math.min(stretch, 2)) * 0.85 + size * 0.15);
+            ctx.fillRect(x, y, sx, sy);
           }
 
           if (t < 1) {
@@ -297,7 +355,7 @@
       });
     }
 
-    _sampleImage(img, stageRect, offsetX, offsetY, grid, kind, wind, side) {
+    _sampleImage(img, stageRect, offsetX, offsetY, grid, kind, wind, side, style) {
       const w = stageRect.width;
       const h = stageRect.height;
       const maxW = Math.min(w, 720);
@@ -333,6 +391,7 @@
       const step = Math.max(1, Math.ceil((sw * sh) / maxP));
       const wdir = wind || { x: 0.75, y: -0.66 };
       const sdir = side || { x: 0.66, y: 0.75 };
+      const st = style || { delayMode: "wind", distScale: 1, curlScale: 1 };
 
       for (let y = 0; y < sh; y++) {
         for (let x = 0; x < sw; x++) {
@@ -354,12 +413,15 @@
           const cg = (g * (1 - mix) + BRASS[1] * mix * (0.35 + lum * 0.65)) | 0;
           const cb = (b * (1 - mix) + BRASS[2] * mix * (0.35 + lum * 0.65)) | 0;
 
-          // 迎风侧（x 小、偏左）更早起飞
           const nx = (px - dx) / Math.max(1, dw);
           const ny = (py - dy) / Math.max(1, dh);
-          // 投影到风的反方向：越靠“上风” delay 越小
           const windProj = -(nx - 0.5) * wdir.x - (ny - 0.5) * wdir.y;
-          const delay = Math.max(0, Math.min(0.42, 0.28 - windProj * 0.35 + rand(-0.08, 0.12)));
+          let delay;
+          if (st.delayMode === "shuffle") {
+            delay = rand(0, 0.38);
+          } else {
+            delay = Math.max(0, Math.min(0.42, 0.28 - windProj * 0.35 + rand(-0.1, 0.14)));
+          }
 
           const dist = Math.hypot(px - cx, py - cy);
           const ang = Math.atan2(py - cy, px - cx);
@@ -368,13 +430,13 @@
             kind,
             x: px,
             y: py,
-            sx: cx + wdir.x * (180 + rand(0, 160)) + Math.cos(ang) * rand(40, 100),
-            sy: cy + wdir.y * (180 + rand(0, 160)) + Math.sin(ang) * rand(40, 100),
-            dist: 220 + dist * 0.9 + rand(40, 200),
-            windSpeed: rand(0.75, 1.35),
-            curl: rand(24, 70),
-            drift: rand(-16, 16),
-            g: rand(-0.3, 1.1),
+            sx: cx + wdir.x * (140 + rand(0, 200)) + Math.cos(ang) * rand(40, 110),
+            sy: cy + wdir.y * (140 + rand(0, 200)) + Math.sin(ang) * rand(40, 110),
+            dist: (200 + dist * 0.85 + rand(30, 220)) * (st.distScale || 1),
+            windSpeed: rand(0.65, 1.5),
+            curl: rand(18, 80) * (st.curlScale || 1),
+            drift: rand(-22, 22),
+            g: rand(-0.3, 1.2),
             seed: rand(0, Math.PI * 2),
             delay,
             size: rand(1.5, 3.4) * (0.7 + lum * 0.75),

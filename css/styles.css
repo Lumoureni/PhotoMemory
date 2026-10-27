@@ -1633,10 +1633,29 @@ select#fieldCollection {
 }
 
 .viewer-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 18px;
-  flex-wrap: wrap;
+  width: 100%;
+  max-width: 280px;
+}
+
+.viewer-actions .btn {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  text-align: center;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 仅两枚按钮时仍等宽两列 */
+#viewerActionsEdit {
+  grid-template-columns: 1fr 1fr;
 }
 
 .viewer-thumbs {
